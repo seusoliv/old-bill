@@ -1,0 +1,77 @@
+:host {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  z-index: 5000;
+  background-color: white;
+}
+
+@keyframes draw {
+  from {
+    stroke-dasharray: 0, 100;
+  }
+  to {
+    stroke-dasharray: 100, 0;
+  }
+}
+
+@keyframes fillColor {
+  from {
+    fill: none;
+  }
+  to {
+    fill: black;
+  }
+}
+
+@keyframes fillOpacity {
+  from {
+    fill-opacity: 0;
+  }
+  to {
+    fill-opacity: 1;
+  }
+}
+
+@keyframes show {
+  to {
+    visibility: visible;
+  }
+}
+
+.animate-svg path {
+  stroke: black;
+  stroke-width: 0.1;
+  fill: black;
+  fill-opacity: 0;
+  animation: draw 1.5s linear forwards, fillOpacity 1s linear forwards 1.5s;
+}
+
+.animate-svg-label {
+  visibility: hidden;
+  animation: show 0s linear forwards 2.5s;
+}
+
+.animate-svg-label path {
+  stroke: black;
+  stroke-width: 0.1;
+  fill: black;
+  fill-opacity: 0;
+  animation: draw 1.5s linear forwards 2.5s, fillOpacity 1s linear forwards 4s;
+}
+
+.animate-svg-name {
+  visibility: hidden;
+  animation: show 0s linear forwards 6s;
+}
+
+.animate-svg-name path {
+  stroke: black;
+  stroke-width: 0.1;
+  fill: black;
+  fill-opacity: 0;
+  animation: draw 2s linear forwards 6s, fillOpacity 3s linear forwards 8s;
+}
