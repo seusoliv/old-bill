@@ -2,7 +2,7 @@
 
 > **So verwendest du dieses Dokument**
 >
-> 1. Lege ein **neues, leeres Repository** an (z. B. `easy-bill`). Das alte Repo `old-bill` wird **nicht** übernommen. Es dient nur als fachliche Referenz: Jeder Agent klont es read-only nach `.reference/old-bill/`, und dieser Ordner steht in `.gitignore`, landet also nie im neuen Repo.
+> 1. Lege ein **neues, leeres Repository** an (z. B. `easy-bill`). Das alte System wird weder kopiert noch referenziert. Alle Funktionen, Regeln und Datenformate stehen vollständig in diesem Dokument.
 > 2. Starte für **jeden Meilenstein eine eigene Claude-Code-Session** (eigener Agent, frischer Kontext).
 > 3. Gib jedem Agenten **immer zuerst Teil A (Gemeinsamer Kontext)** und danach **genau einen Meilenstein aus Teil B**.
 > 4. Halte die Reihenfolge laut Abhängigkeitsgraph ein. Meilensteine in derselben Zeile können parallel laufen (dann jeweils in einem eigenen Branch/Worktree).
@@ -22,13 +22,13 @@ M0 ─┬─► M1 ─► M2 ─► M3 ─┬─► M4 ─► M5 ─┬─► M6
 
 ### A.1 Ziel
 
-Du baust **EasyBill**, eine deutschsprachige Rechnungs-PWA für Selbstständige und Kleinunternehmer, **in einem neuen Repository**. Sie ersetzt die bestehende App „BillKiller“. Deren Code liegt nur als read-only Referenz unter `.reference/old-bill/` (Angular 19 PWA + Express-Backend; Doku in `.reference/old-bill/CLAUDE.md`; per `.gitignore` ausgeschlossen).
+Du baust **EasyBill**, eine deutschsprachige Rechnungs-PWA für Selbstständige und Kleinunternehmer, **in einem neuen Repository und komplett neu**. Sie ersetzt die bisherige App „BillKiller“. Auf das alte System hast du keinen Zugriff, und du brauchst ihn auch nicht.
 
-**Vom Altsystem übernommen wird nur der Funktionsumfang.** Code, Struktur, UI-Komponenten, Layout und Look & Feel werden **nicht** übernommen. EasyBill bekommt ein komplett neues, modernes UI/UX-Konzept (A.7). Der alte Code dient nur dazu, fachliche Regeln, Berechnungen und Datenformate nachzulesen.
+**Vom Altsystem übernommen wird nur der Funktionsumfang, und der ist in A.2 vollständig beschrieben.** Code, Struktur und Look & Feel werden nicht übernommen. EasyBill bekommt ein neues, modernes UI/UX-Konzept (A.7). Die einzige Verbindung zum Altsystem ist der Import seiner JSON-Backups (Format in M7).
 
 Die Architektur ändert sich wie folgt:
 
-| Bisher (legacy) | Neu |
+| Bisher (BillKiller) | Neu |
 |---|---|
 | Daten in IndexedDB (Browser) oder SQLite (lokales Backend) | Daten in einer **bereits vorhandenen MongoDB** (Verbindung per `MONGODB_URI`) |
 | PDFs auf dem Server unter `FILE_SAVE_LOCATION/<nr>/…` | PDFs **nur auf dem PC des Users**, in einem Ordner, den er in den User-Settings wählt (File System Access API). Der Server **speichert keine PDFs**. |
@@ -38,20 +38,58 @@ Die Architektur ändert sich wie folgt:
 | – | **Import** alter JSON-Backups über die User-Settings |
 | – | Zusätzliche Features: Angebote, Mahnwesen, Zahlungseingänge, Storno, wiederkehrende Rechnungen, USt-Modus, DATEV/CSV-Export, DSGVO-Export, optional E-Rechnung |
 
-### A.2 Funktionsumfang der alten App, der erhalten bleibt (Referenz: `.reference/old-bill/`)
+### A.2 Funktionsumfang (vollständige fachliche Spezifikation)
 
-Die Pfadangaben zeigen, wo die **fachliche Logik** nachzulesen ist. Wie diese Funktionen im neuen UI aussehen und bedient werden, legt A.7 bzw. M0b fest, nicht der alte Code.
+Dieser Abschnitt beschreibt **abschließend**, welche Funktionen EasyBill mindestens haben muss. Er ist die einzige fachliche Quelle; **es gibt keinen Zugriff auf das alte System und keinen Code daraus**. Wie die Funktionen aussehen und bedient werden, legen A.7 und M0b fest.
 
-- **Dashboard** (`.reference/old-bill/src/app/views/dashboard`): KPI-Karten, Monatsumsatz-Chart, Top-5-Kunden, Aufschlüsselung nach Auftragsstatus. Standardroute.
-- **Aufträge** (`order-overview`): anlegen, bearbeiten, löschen, suchen (Name/Nummer), Positionen aus Artikeln oder frei, Positions- und Gesamtrabatt, Negativpositionen, Flex-Preise, PDF erzeugen, Rechnung per Mail senden, Status `OPEN → IN_PROGRESS → SENT_MAIL → CLOSED`, `payDate = Rechnungsdatum + 14 Tage` (künftig einstellbar), `closedDate` beim Schließen.
-- **Kunden** (`customer-overview`): CRUD, paginierte Suche, XLSX-Import.
-- **Artikel** (`articles-overview`): Artikeltypen (Einheit Stunde/Stück, Preis, Artikelnummer, Flex-Preis, Negativposition, Zusatzinfo), CRUD, XLSX-Import.
-- **Steuerreport** (`tax-report`): EÜR-Einnahmenliste nach Monaten, Jahr wählbar, nur bezahlte bzw. geschlossene Rechnungen.
-- **Hilfe** (`help`): wird zur Bedienungsanleitung (Ordner wählen, Import, Agent verbinden).
-- **Preisberechnung**: Die Rechenregeln aus `.reference/old-bill/src/app/shared/utils/calc-prize.ts` fachlich nachbauen (neuer Code, kein Copy & Paste). Der neue Code rechnet **in Cent (Integer)** und muss bei denselben Eingaben exakt dieselben Beträge liefern.
-- **PDF-Inhalte**: `.reference/old-bill/Backend/src/services/pdf-generator.service.ts` zeigt, **welche Inhalte** eine Rechnung hat: Logo, Firmenblock, Kundenblock, Einleitungstext mit Platzhaltern, Rechnungs- und Kundennummer, Rechnungs- und Fälligkeitsdatum, Positionstabelle (Rabattspalte nur bei Bedarf), Summenblock, Bankverbindung. Das **Rechnungsdesign wird neu gestaltet** (M0b/M5) und folgt DIN 5008 für Anschriftfeld und Faltmarken.
-- **Platzhalter** (`placeholder-replace.utils.ts`): `%customerName%`, `%customerFirstName%`, `%customerLastName%`, `%orderNumber%`, `%payDay%`, `%genderedFormallyGreetings%`, `%tenantBusiness%`. Alle ersetzen, nicht nur das erste Vorkommen (der alte Code nutzt `String.replace`, das ist ein Bug).
-- **MCP-Tools** (`.reference/old-bill/Backend/src/mcp/register-tools.ts`): alle Tools fachlich übernehmen (siehe M9).
+**Stammdaten**
+- **Kunden:** Vorname, Nachname, E-Mail (optional), Straße, Hausnummer, PLZ, Ort. Funktionen: anlegen, bearbeiten, löschen (nur ohne Rechnungen, sonst archivieren), Suche über Name und Ort mit Pagination.
+  - **Excel-Import (XLSX):** erstes Tabellenblatt, Kopfzeile mit den Spalten `Vorname`, `Nachname`, `Straße`, `HausNr`, `PLZ`, `Ort`, `Mail` (optional). Jede Zeile wird ein neuer Kunde. Fehlerhafte Zeilen werden übersprungen und im Ergebnis aufgelistet.
+- **Artikel (Leistungen/Produkte):** Bezeichnung, Artikelnummer (eindeutig pro User), Einheit (`HOUR` = Stunde, `PIECE` = Stück), Preis, `isFlexPrice` (Preis wird pro Auftrag frei eingegeben), `isNegativePosition` (Position wird abgezogen, z. B. Gutschrift oder Anzahlung), Zusatzinformation (optional). Funktionen: anlegen, bearbeiten, löschen, alle löschen (mit Bestätigung), Suche, Filter nach Einheit und Negativposition, Lookup per Artikelnummer.
+  - **Excel-Import (XLSX):** erstes Tabellenblatt mit den Spalten `Artikelbezeichnung`, `Artikelnummer`, `Preis`. Einheit ist Stück, `isFlexPrice` und `isNegativePosition` sind `false`. Gibt es die Artikelnummer schon, wird der Artikel aktualisiert, sonst neu angelegt.
+
+**Aufträge und Rechnungen**
+- **Auftrag:** Kunde (Name wird für Listen denormalisiert), Positionen, optionaler Gesamtrabatt in %, Erstellungsdatum, Notizen. Funktionen: anlegen, bearbeiten, löschen (nur solange keine Rechnung ausgestellt ist), Suche über Kundenname und Nummer. Filter (kombinierbar): Kunde, Status, Erstellungszeitraum (tagesgenau, inklusive), „nur überfällige“.
+- **Position:** Bezeichnung, Menge (Dezimalzahl erlaubt, z. B. 1,5 Stunden; max. 3 Nachkommastellen), Einzelpreis, Einheit, optionaler Positionsrabatt in %, `isFlexPrice`, `isNegativePosition`. Positionen werden aus einem Artikel übernommen (Werte vorbelegt, Flex-Preis editierbar) oder frei erfasst.
+- **Status:** Der Lebenszyklus `Neu → Rechnung erstellt → per Mail verschickt → bezahlt` bleibt fachlich erhalten. Im neuen Modell wird er auf Auftrag und Rechnung verteilt (M1): ausgestellt, versendet, teilweise oder vollständig bezahlt, storniert, überfällig.
+- **Fälligkeit:** Rechnungsdatum + Zahlungsziel (bisher fest 14 Tage, künftig in den Settings einstellbar; Default 14). „Überfällig“ heißt: Fälligkeitsdatum ist überschritten und die Rechnung ist nicht vollständig bezahlt.
+- **Bezahlt-Datum:** Wird gesetzt, wenn die Rechnung vollständig bezahlt ist. Es ist maßgeblich für Umsatz- und Steuerauswertungen.
+
+**Preisberechnung** (neu implementieren in Integer-Cent, kaufmännisch runden, half-up)
+- Positionsbetrag = `Einzelpreis × Menge × (100 − Positionsrabatt) / 100`; bei `isNegativePosition` negativ. Ohne Rabatt entfällt der Faktor.
+- Zwischensumme = Summe aller Positionsbeträge.
+- Gesamtbetrag = `Zwischensumme × (100 − Gesamtrabatt) / 100`; ohne Gesamtrabatt gleich der Zwischensumme.
+- Rundung auf Cent pro Positionsbetrag und einmal beim Gesamtbetrag. Steuern kommen im Modus `STANDARD` hinzu (M1).
+- Pflicht-Testfälle:
+
+  | Fall | Eingabe | Erwartung |
+  |---|---|---|
+  | einfach | 3 × 10,00 € | 30,00 € |
+  | Positionsrabatt | 2 × 50,00 €, 10 % | 90,00 € |
+  | Negativposition | 1 × 20,00 €, negativ | −20,00 € |
+  | Gesamtrabatt | Positionen 30,00 + 90,00 − 20,00, Gesamtrabatt 5 % | Zwischensumme 100,00 €, Gesamt 95,00 € |
+  | Rundung | 3 × 33,33 €, 10 % Positionsrabatt | 89,99 € (aus 89,991) |
+  | Stunden | 1,5 h × 80,00 € | 120,00 € |
+
+**Rechnungs-PDF** (Inhalte; das Design ist neu, siehe M0b/M5)
+- Logo, Firmenblock (Name, Straße, PLZ, Ort, Telefon), Anschrift des Kunden, Titel „Rechnung“, Einleitungstext aus der Vorlage mit Platzhaltern, Rechnungsnummer, Rechnungsdatum, Kundennummer, Fälligkeitsdatum.
+- Positionstabelle (Pos., Artikel, Menge, Rabatt nur wenn mindestens eine Position einen Rabatt hat, Einzelpreis, Gesamtpreis), Summenblock (Zwischensumme und Rabatt nur bei Gesamtrabatt, dann Gesamtbetrag), Schlusstext aus der Vorlage mit Fälligkeitsdatum, Bankverbindung (IBAN, Bank) in der Fußzeile.
+- Dazu kommen die neuen Pflichtangaben aus M1/M5.
+
+**Textvorlagen und Platzhalter** (pro User in den Settings: Einleitungstext, Schlusstext, Mail-Betreff, Mail-Text)
+- `%customerName%` (Vor- und Nachname), `%customerFirstName%`, `%customerLastName%`, `%genderedFormallyGreetings%` (z. B. „Sehr geehrter Herr …“ bzw. „Sehr geehrte Frau …“, neutral ohne Anrede), `%orderNumber%` bzw. `%invoiceNumber%`, `%payDay%` (Fälligkeitsdatum), `%tenantBusiness%` (eigener Firmenname).
+- Jedes Vorkommen wird ersetzt. Ein unbekannter Platzhalter ist ein Validierungsfehler beim Speichern der Vorlage.
+
+**E-Mail-Versand**
+- Rechnung als PDF-Anhang an die E-Mail-Adresse des Kunden. Betreff und Text kommen aus der Vorlage. Danach gilt die Rechnung als versendet. Der Button ist deaktiviert, wenn der Kunde keine E-Mail-Adresse hat.
+
+**Auswertungen**
+- **Dashboard:** Gesamtumsatz, Umsatz im laufenden Monat (nach Bezahlt-Datum), Anzahl neuer Aufträge, Anzahl offener (ausgestellter, aber unbezahlter) Rechnungen, Umsatz der letzten 6 Monate pro Monat als Diagramm, Top-5-Kunden nach Umsatz, Verteilung nach Status mit Anzahl und Anteil in %.
+- **Steuerreport (EÜR-Einnahmen):** Jahr wählbar (Jahre mit Einnahmen sowie das aktuelle Jahr ±5, +10). Nur bezahlte Rechnungen, gruppiert nach Monat des Bezahlt-Datums, mit Monatssummen und Jahressumme. Export als CSV und PDF.
+
+**Datensicherung und Agent-Zugriff**
+- JSON-Export der eigenen Kunden, Artikel und Aufträge.
+- Alle oben genannten Funktionen sind auch über den MCP-Server nutzbar (M9).
 
 ### A.3 Tech-Stack (vor Projektstart auf aktuelle stabile Versionen prüfen)
 
@@ -78,6 +116,19 @@ Die Pfadangaben zeigen, wo die **fachliche Logik** nachzulesen ist. Wie diese Fu
 5. **Die API ist die einzige Quelle der Wahrheit.** Web-App und MCP-Server nutzen dieselben Service-Klassen (kein doppelter Fachcode).
 6. **Ein Hosting-Modell:** API, SPA, OAuth-Server und MCP-Endpunkt liegen unter einer Origin (z. B. `https://bill.example.de`), MCP unter `/mcp`.
 7. Die App darf **keine MongoDB-Transaktionen voraussetzen**. Wenn ein Replica Set vorhanden ist, darf sie Transaktionen nutzen; sonst gelten idempotente Operationen und atomare Einzeldokument-Updates.
+
+### A.4a Lebenszyklus einer Rechnung (Web-App und Agent)
+
+**Grundsatz:** Gespeichert wird die Rechnung als **Datensatz**, nicht als Datei. Der eingefrorene Snapshot in MongoDB enthält alles, was auf dem PDF steht. Weil das PDF deterministisch aus dem Snapshot entsteht, kann es jederzeit **bitgenau neu erzeugt** werden, und der gespeicherte SHA-256-Hash beweist das. Ein PDF existiert auf dem Server nur für die Dauer eines Requests im Arbeitsspeicher. Dauerhaft liegt es nur beim User.
+
+1. **Ausstellen** (Web-App oder MCP-Tool `issue_invoice`): Der Server vergibt die Nummer, friert den Snapshot ein, rendert das PDF im Speicher, berechnet den Hash, speichert Snapshot und Hash und verwirft das PDF. Die Rechnung ist ab jetzt rechtlich ausgestellt und unveränderlich, egal ob schon eine Datei beim User liegt.
+2. **Versenden** (Web-App oder MCP-Tool `send_invoice_mail`): Der Server rendert das PDF erneut im Speicher aus dem Snapshot, prüft den Hash, hängt es an die Mail, sendet sie über den SMTP des Users und verwirft das PDF. Gespeichert werden nur das Versandprotokoll und der Status `SENT`.
+3. **Dem Agenten zeigen** (MCP-Tool `get_invoice_pdf`): wie Schritt 2, nur dass das PDF als Resource an den Agenten zurückgeht statt per Mail.
+4. **Lokal ablegen:**
+   - **Ausgelöst in der Web-App:** Der Browser rendert das PDF aus dem Snapshot (gleicher Code wie der Server), prüft den Hash, schreibt die Datei sofort in den gewählten Ordner (Chrome/Edge) bzw. startet einen Download (andere Browser) und meldet `local-copy`.
+   - **Ausgelöst durch einen Agenten:** Die Rechnung hat noch keine bestätigte lokale Kopie. Beim nächsten Öffnen der Web-App erscheint „X Rechnungen noch nicht lokal gespeichert“. Ein Klick erzeugt die PDFs im Browser, prüft die Hashes und legt sie im Ordner ab. Das Dashboard führt solche Rechnungen unter „Zu erledigen“; optional kommt nach X Tagen eine Erinnerungsmail.
+   - Das MCP-Tool sagt dem Agenten in seiner Antwort, dass die Datei beim nächsten Öffnen der App lokal gespeichert wird, damit er es dem User mitteilen kann.
+5. **Später erneut abrufen:** Jede Rechnung lässt sich aus dem Snapshot jederzeit neu erzeugen und herunterladen, z. B. auf einem neuen PC oder nach Datenverlust. Die Integritätsprüfung (M5) vergleicht lokale Dateien mit den Hashes.
 
 ### A.5 Security-Baseline (gilt für alle Meilensteine)
 
@@ -157,7 +208,6 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 - `docker-compose.yml` für die Entwicklung: MongoDB als Replica Set mit einem Knoten (für lokale Transaktionstests), API und Web. `.env.example` ohne echte Secrets.
 - CI (GitHub Actions): install, lint, typecheck, test, build, `npm audit --audit-level=high`, SBOM erzeugen.
 - Doku: `CLAUDE.md` (Befehle, Struktur, Konventionen aus Teil A), `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, `docs/adr/0001-architektur.md` (Monorepo, Mongo, PDFs nur lokal, BFF-Sessions, eingebauter OAuth-Server).
-- `.reference/` in `.gitignore`, `.eslintignore` und in die Test-Konfiguration aufnehmen. Ein `scripts/fetch-reference.sh` klont das alte Repo read-only dorthin, damit spätere Agenten die fachliche Referenz haben.
 
 **Akzeptanz:** `docker compose up` startet alles. `/readyz` ist grün mit Mongo. Die Web-App lädt mit leerer Shell. Die CI ist grün.
 
@@ -189,15 +239,15 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 **Aufgaben**
 - In `packages/shared` als zod-Schemas mit abgeleiteten Typen anlegen:
   - `Customer`: `customerNumber` (pro User fortlaufend), Anrede/`gender`, Vorname, Nachname, Firma optional, E-Mail optional, Straße, Hausnummer, PLZ, Ort, Land (Default DE), USt-IdNr. optional, Notizen, `legacyId?`.
-  - `ArticleType`: wie in legacy, plus `taxRate` (Basispunkte).
-  - `Position`: wie in legacy, plus `taxRate` und `unit`. Beträge in Cent.
-  - `Order` (Auftrag/Entwurf): wie in legacy, plus `serviceDate` oder `servicePeriod` (Leistungsdatum ist Pflichtangabe nach §14 UStG), `notes`, `legacyOrderNumber?`.
+  - `ArticleType`: wie in A.2, plus `taxRate` (Basispunkte).
+  - `Position`: wie in A.2, plus `taxRate` und `unit`. Beträge in Cent.
+  - `Order` (Auftrag/Entwurf): wie in A.2, plus `serviceDate` oder `servicePeriod` (Leistungsdatum ist Pflichtangabe nach §14 UStG), `notes`, `legacyOrderNumber?`.
   - `Invoice`: unveränderlicher Snapshot nach A.4.2, mit `invoiceNumber`, `type` (`INVOICE | CANCELLATION | CREDIT_NOTE`), `refInvoiceId?`, `issuedAt`, `dueDate`, `pdfSha256`, `layoutVersion`, `localCopy: {confirmedAt?}`, `status` (`ISSUED | SENT | PARTIALLY_PAID | PAID | CANCELLED | OVERDUE` (abgeleitet)).
   - `Payment` (Zahlungseingang), `Counter` (Nummernkreise), `UserSettings` (Firmenprofil, Steuermodus, Texte, Zahlungsziel, Nummernformat, Dateinamensmuster, SMTP), `AuditEvent`.
 - **Steuermodus** in den Settings:
   - `SMALL_BUSINESS` (Kleinunternehmer nach §19 UStG, Default): keine USt; der Hinweistext wird automatisch auf die Rechnung gedruckt.
   - `STANDARD`: USt pro Position (19 %, 7 %, 0 %), Ausweis nach Steuersätzen getrennt, Steuernummer bzw. USt-IdNr. Pflicht.
-  - Berechnung in `packages/shared/calc` mit Rundung pro Steuersatz-Summe. Für den Kleinunternehmer-Modus mit legacy-kompatiblen Ergebnissen; Golden-Tests: Die Referenzwerte werden einmalig mit der alten Funktion erzeugt und als JSON-Fixture ins neue Repo eingecheckt (`packages/shared/test/fixtures/legacy-calc.json`). So läuft die CI ohne `.reference/`.
+  - Berechnung in `packages/shared/calc` mit Rundung pro Steuersatz-Summe. Die Pflicht-Testfälle aus A.2 müssen im Modus `SMALL_BUSINESS` exakt erfüllt sein; ergänze eigene Randfälle.
 - Nummernkreise: konfigurierbares Format (z. B. `RE-{YYYY}-{####}`), atomar und lückenlos. Getrennte Kreise für Rechnung, Angebot, Kunde und Storno.
 - `apps/api`: Mongo-Verbindungsmodul, Migrationssystem (versionierte Skripte, beim Start oder per CLI) für Collections, JSON-Schema-Validatoren und Indizes (u. a. eindeutig `{ownerId, invoiceNumber}`, `{ownerId, customerNumber}`, Textindex für die Suche).
 - Ein `BaseRepository<T>`, das `ownerId` **zwingend** im Konstruktor bzw. Kontext erwartet und an jede Operation hängt. Eine direkte Collection-Nutzung außerhalb der Repositories wird per Lint-Regel verboten.
@@ -232,12 +282,12 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 
 **Aufgaben**
 - **Service-Layer** (`apps/api/src/domain/*`), den die REST-Router und später der MCP-Server gemeinsam nutzen.
-- **Kunden:** CRUD, Suche (Name, Firma, Ort, Nummer), Pagination, XLSX-Import (Spaltenmapping wie legacy; `xlsx` durch eine gepflegte Library wie `exceljs` ersetzen).
+- **Kunden:** CRUD, Suche (Name, Firma, Ort, Nummer), Pagination, XLSX-Import (Spalten laut A.2; `xlsx` durch eine gepflegte Library wie `exceljs` ersetzen).
 - **Artikel:** CRUD, Suche, Filter (`unit`, `isNegativePosition`), Lookup nach Artikelnummer, „alle löschen“ (mit Bestätigung), XLSX-Import.
-- **Aufträge:** CRUD, Suche, Filter wie in legacy (`customerNumber`, `state`, `createdFrom`/`createdTo`, `onlyOverdue`), dazu eine Statusmaschine mit erlaubten Übergängen.
+- **Aufträge:** CRUD, Suche, Filter laut A.2 (`customerNumber`, `state`, `createdFrom`/`createdTo`, `onlyOverdue`), dazu eine Statusmaschine mit erlaubten Übergängen.
 - **Rechnung ausstellen:** `POST /api/orders/:id/issue` validiert die Pflichtangaben (§14 UStG: vollständige Adressen, Steuernummer bzw. USt-IdNr., Leistungsdatum, fortlaufende Nummer, Steuerausweis oder §19-Hinweis). Der Endpunkt erzeugt den Snapshot und die Nummer, rendert das PDF serverseitig **nur im Speicher**, um den SHA-256 zu bilden, speichert die Rechnung und liefert sie zurück.
 - **Rechnungen:** lesen, filtern, `GET /api/invoices/:id/pdf` (PDF aus dem Snapshot im Speicher erzeugen und streamen; `Cache-Control: no-store`), Storno (erzeugt eine Stornorechnung mit eigener Nummer und Referenz, die Originalrechnung wird `CANCELLED`), `POST /api/invoices/:id/local-copy` (bestätigt, dass die lokale Ablage erfolgt ist, mit Hash-Abgleich).
-- **Zahlungen:** Zahlung erfassen (Teilzahlungen); der Status wird automatisch abgeleitet. Bei vollständiger Zahlung `paidAt` setzen. Das legacy-`CLOSED` entspricht dem neuen `PAID`.
+- **Zahlungen:** Zahlung erfassen (Teilzahlungen); der Status wird automatisch abgeleitet. Bei vollständiger Zahlung `paidAt` setzen. „Bezahlt“ aus A.2 entspricht dem neuen `PAID`.
 - **Reports:** Dashboard-KPIs, Umsatz pro Monat, Top-Kunden, EÜR-Einnahmenliste pro Jahr (nach Zahlungsdatum, Zuflussprinzip), überfällige Rechnungen.
 - Eine OpenAPI-Spezifikation wird aus den zod-Schemas generiert (z. B. `zod-openapi`) und unter `/api/docs` nur in der Entwicklung ausgeliefert.
 
@@ -247,7 +297,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 
 ### M4 – Web-App: Login & fachliche Views
 
-**Ziel:** Die Angular-PWA mit allen Views der alten App, angebunden an die neue API.
+**Ziel:** Die Angular-PWA mit allen Funktionen aus A.2, angebunden an die neue API.
 
 **Aufgaben**
 - Login-, MFA-, Setup-, Einladungs- und Reset-Seiten. Auth-State per Signal aus `GET /api/me`. Route-Guards. HTTP-Interceptor für CSRF-Token und 401-Handling (zurück zum Login).
@@ -299,11 +349,14 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 
 **Ziel:** Bestehende BillKiller-Daten in das Konto des angemeldeten Users übernehmen.
 
-**Quellformate** (siehe `.reference/old-bill/Backend/src/services/backup.service.ts` und die legacy-Interfaces unter `.reference/old-bill/src/app/services/storage/interfaces/`):
-- `customer_backup.json`: Array von `Customer {id, name, surname, email?, zipCode, street, city, houseNumber, gender?}`.
-- `orders_backup.json`: Array von `Order {orderNumber, customerNumber, customerName, isMailAddressAvailable, state, createdDate, closedDate?, payDate?, positions[], discount, total}`. Datumswerte sind ISO-Strings, Preise Euro-Floats.
-- Optional `backup_articleTypes/*.json`: Array von `ArticleType`.
-- Achtung: Im legacy-Code ist `name` der Vorname und `surname` der Nachname (siehe PDF-Generator). Die Zuordnung vor dem Import in der Vorschau anzeigen.
+**Quellformate** (JSON-Backups von BillKiller, vollständig hier beschrieben):
+- `customer_backup.json`: Array von `{id: number, name: string /* Vorname */, surname: string /* Nachname */, email?: string, zipCode: number, street: string, city: string, houseNumber: string, gender?: 0 | 1 /* 0 = Herr, 1 = Frau */}`.
+- `orders_backup.json`: Array von `{orderNumber: number, customerNumber: number /* = Kunden-id */, customerName: string, isMailAddressAvailable: boolean, state: "OPEN" | "IN_PROGRESS" | "SENT_MAIL" | "CLOSED", createdDate: string, closedDate?: string, payDate?: string /* Fälligkeit */, positions: Position[], discount: number | null /* % */, total: number /* € */}`.
+  - `Position = {name: string, count: number, prize: number /* € */, unit: "h" | "pc", discount: number | null /* % */, isFlexPrice: boolean, isNegativePosition: boolean}`.
+  - Datumswerte sind ISO-8601-Strings, Beträge Euro-Floats. `IN_PROGRESS` heißt „PDF erstellt“, `SENT_MAIL` „per Mail verschickt“, `CLOSED` „bezahlt“.
+- Optional ein Artikel-Backup: Array von `{id: number, name: string, unit: "h" | "pc", prize: number, articleNumber: string, isFlexPrice: boolean, isNegativePosition: boolean, additionalInformation?: string}`.
+- Achtung: `name` ist der Vorname, `surname` der Nachname. Die Zuordnung vor dem Import in der Vorschau anzeigen.
+- Die Dateien sind Fremddaten: Sie können unvollständig sein oder abweichende Typen haben (z. B. PLZ als Zahl ohne führende Null, wie bei `1067` für `01067`). Validieren, normalisieren und Abweichungen im Bericht ausweisen.
 
 **Aufgaben**
 - **Wizard** unter Einstellungen → „Daten importieren“:
@@ -312,12 +365,12 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   3. Optionen wählen.
   4. Import ausführen.
   5. Bericht anzeigen und herunterladen.
-- **Mapping:** Legacy-IDs als `legacyId` bzw. `legacyOrderNumber` speichern. Euro in Cent umrechnen (exakt runden). Legacy-States übersetzen: `CLOSED` wird zur ausgestellten und bezahlten Rechnung mit `paidAt = closedDate`; `SENT_MAIL` wird zu `SENT`; `OPEN` und `IN_PROGRESS` bleiben Aufträge. Steuermodus `SMALL_BUSINESS`.
-- **Alte Rechnungen:** Die legacy-`orderNumber` war die Rechnungsnummer. Importierte Rechnungen behalten diese Nummer (Kennzeichen `imported: true`, Format „wie importiert“). Der neue Nummernkreis startet **oberhalb der höchsten importierten Nummer**, damit keine Duplikate entstehen; das ist im Wizard einstellbar. Die alten PDFs liegen bereits beim User (`<FILE_SAVE_LOCATION>/<orderNumber>/Rechnung_<surname>_<orderNumber>.pdf`) und werden **nicht** neu erzeugt. Optional kann der User seinen alten Rechnungsordner wählen; die App ordnet dann die vorhandenen Dateien zu und speichert deren SHA-256.
+- **Mapping:** Die alten IDs als `legacyId` bzw. `legacyOrderNumber` speichern. Euro in Cent umrechnen (exakt runden). Den `total` aus der Datei als festen Rechnungsbetrag übernehmen, nicht neu berechnen; Abweichungen zur Neuberechnung nur im Bericht ausweisen. Alte Status übersetzen: `CLOSED` wird zur ausgestellten und bezahlten Rechnung mit `paidAt = closedDate`; `SENT_MAIL` wird zu `SENT`; `OPEN` und `IN_PROGRESS` bleiben Aufträge. Steuermodus `SMALL_BUSINESS`.
+- **Alte Rechnungen:** Die alte `orderNumber` war die Rechnungsnummer. Importierte Rechnungen behalten diese Nummer (Kennzeichen `imported: true`, Format „wie importiert“). Der neue Nummernkreis startet **oberhalb der höchsten importierten Nummer**, damit keine Duplikate entstehen; das ist im Wizard einstellbar. Die alten PDFs liegen bereits beim User (`<FILE_SAVE_LOCATION>/<orderNumber>/Rechnung_<surname>_<orderNumber>.pdf`) und werden **nicht** neu erzeugt. Optional kann der User seinen alten Rechnungsordner wählen; die App ordnet dann die vorhandenen Dateien zu und speichert deren SHA-256.
 - **Idempotenz:** Ein erneuter Import derselben Datei erzeugt keine Duplikate (Upsert über `ownerId + legacyId`). Ein Abbruch ist sicher; wenn kein Replica Set vorhanden ist, wird pro Batch gearbeitet und ein Fortsetzungs-Marker gespeichert.
 - Einträge im Audit-Log.
 
-**Akzeptanz:** Tests mit generierten Legacy-Fixtures inkl. Randfällen (fehlende Felder, Datumsformate, Rundung, verwaiste Aufträge, doppelter Import). Die Summen vor und nach dem Import stimmen exakt überein.
+**Akzeptanz:** Tests mit generierten Backup-Fixtures im obigen Format inkl. Randfällen (fehlende Felder, Datumsformate, Rundung, verwaiste Aufträge, doppelter Import). Die Summen vor und nach dem Import stimmen exakt überein.
 
 ---
 
@@ -362,14 +415,14 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - Geprüft werden Signatur, `iss`, `aud` (= `/mcp`), `exp` und Scopes.
   - Der `sub` des Tokens wird zum `ownerId`; die Tools nutzen die Services aus M3 mit diesem Kontext.
   - `Origin`-Header validieren (Schutz vor DNS-Rebinding).
-- **Tools** (Namen wie legacy, wo vorhanden), jeweils mit zod-Input-Schema, `outputSchema`/`structuredContent` und Annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`):
+- **Tools** (die Namen sind verbindlich), jeweils mit zod-Input-Schema, `outputSchema`/`structuredContent` und Annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`):
   - Kunden: `list_customers`, `get_customer`, `create_customer`, `update_customer`, `delete_customer`, `get_customer_with_orders`.
   - Artikel: `list_article_types` (Filter `unit`, `isNegativePosition`), `get_article_type`, `get_article_type_by_number`, `create_article_type`, `update_article_type`, `delete_article_type`, `clear_article_types`.
-  - Aufträge: `list_orders` (Filter wie legacy), `get_order`, `create_order`, `update_order`, `delete_order`, `get_orders_by_customer`.
+  - Aufträge: `list_orders` (Filter laut A.2, plus `start`/`end` für Pagination), `get_order`, `create_order`, `update_order`, `delete_order`, `get_orders_by_customer`.
   - Rechnungen: `issue_invoice`, `list_invoices`, `get_invoice`, `get_overdue_invoices`, `cancel_invoice`, `record_payment`, `send_invoice_mail`, `get_invoice_pdf` (liefert das PDF als eingebettete Resource bzw. Base64-Blob, im Speicher erzeugt). **Hinweis an das Modell:** Die Datei wird nicht auf dem Server gespeichert; der User speichert sie beim nächsten Öffnen der App (Banner aus M5).
   - Reports: `get_revenue_report` (Jahr bzw. Zeitraum, gruppiert nach Monat), `get_dashboard_kpis`, `get_tax_report`.
   - Neu aus M10, sobald vorhanden: Angebote, Mahnungen, wiederkehrende Rechnungen.
-  - Die legacy-Tools `trigger_*_backup` entfallen, weil die Datenbank zentral liegt. Ersatz ist `export_my_data` (JSON-Export als Resource).
+  - Datensicherung: `export_my_data` (JSON-Export der eigenen Daten als Resource).
 - **Sicherheit für Agents:**
   - Destruktive bzw. folgenreiche Tools (`delete_*`, `clear_*`, `issue_invoice`, `send_invoice_mail`, `cancel_invoice`) brauchen eigene Scopes. Wo der Client es unterstützt, holen sie per **Elicitation** eine Bestätigung ein; sonst verlangen sie einen Parameter `confirm: true` und beschreiben die Folgen im Tool-Text.
   - Rate-Limits pro Client und User.
@@ -425,7 +478,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 - **Datenschutz:** Vorlage für Datenschutzerklärung und Verzeichnis der Verarbeitungstätigkeiten (Hinweis: rechtlich prüfen lassen), Impressums-Platzhalter.
 - **Abschluss:** Release-Notes, Versionierung (SemVer) und eine vollständige Hilfe-Seite für Endnutzer.
 
-**Akzeptanz:** Alle Scans ohne High- oder Critical-Funde, die ASVS-Checkliste vollständig, ein frischer Deploy nach Doku gegen eine leere Mongo funktioniert, und der Import eines echten (anonymisierten) Legacy-Backups läuft durch.
+**Akzeptanz:** Alle Scans ohne High- oder Critical-Funde, die ASVS-Checkliste vollständig, ein frischer Deploy nach Doku gegen eine leere Mongo funktioniert, und der Import eines echten (anonymisierten) BillKiller-Backups läuft durch.
 
 ---
 
@@ -442,8 +495,8 @@ Deine Aufgabe ist ausschließlich Meilenstein <Mx>:
 <Abschnitt Mx hier einfügen>
 
 Arbeite die Aufgaben vollständig ab und halte die Definition of Done (A.6) und bei
-UI-Arbeit die UI/UX-Leitlinien (A.7) ein. Übernimm aus .reference/old-bill/ nur
-Fachlogik, keinen Code und kein UI.
+UI-Arbeit die UI/UX-Leitlinien (A.7) ein. Die fachliche Grundlage ist ausschließlich
+A.2; es gibt kein Altsystem zum Nachschauen.
 Recherchiere aktuelle Versionen und Spezifikationen, bevor du Abhängigkeiten
 hinzufügst. Frag mich, wenn eine fachliche Entscheidung offen ist. Aktualisiere
 am Ende docs/PROGRESS.md mit einer Übergabe für den nächsten Agenten und committe.
