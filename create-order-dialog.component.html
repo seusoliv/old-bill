@@ -1,0 +1,93 @@
+<div class="flex flex-col p-6 h-full">
+  <div class="flex gap-3">
+    <mat-form-field class="flex-1">
+      <mat-label>{{ 'Kunde auswählen' }}</mat-label>
+      <input [formControl]="customerControl" [matAutocomplete]="cusotmerAuto" matInput type="text">
+      <mat-autocomplete #cusotmerAuto="matAutocomplete" [displayWith]="displayCustomer">
+        @for (article of customers(); track article.id) {
+          <mat-option [value]="article">{{ article.surname + ' ' + article.name }}
+          </mat-option>
+        }
+      </mat-autocomplete>
+    </mat-form-field>
+    <div class="flex flex-col flex-1">
+      <label>{{ 'Ausgewählter Kunde:' }}</label>
+      <span>{{ formGroup.controls.customer.value !== null ? formGroup.controls.customer.value.surname + ' ' + formGroup.controls.customer.value.name : '' }}</span>
+    </div>
+  </div>
+
+  <div class="flex gap-3">
+    <mat-form-field class="flex-1">
+      <mat-label>{{ 'Artikel auswählen' }}</mat-label>
+      <input [formControl]="articleTypeControl" [matAutocomplete]="articleAuto" matInput type="text">
+      <mat-autocomplete #articleAuto="matAutocomplete" [displayWith]="displayArticle">
+        @for (articleType of articleTypes(); track articleType.id) {
+          <mat-option [value]="articleType">{{ articleType.name }}
+          </mat-option>
+        }
+      </mat-autocomplete>
+    </mat-form-field>
+
+    <mat-form-field class="flex-1">
+      <mat-label>{{ 'Rabatt' }}</mat-label>
+      <input [formControl]="formGroup.controls.discount" matInput type="number">
+      <span matTextSuffix>{{ '%' }}</span>
+    </mat-form-field>
+  </div>
+
+
+  <div class="h-3/4 overflow-auto">
+    @for (position of formGroup.controls.positions.controls; track position) {
+      <form class="flex" [formGroup]="position">
+        <mat-form-field class="mr-3 flex-[2]">
+          <mat-label>{{ 'Artikel' }}</mat-label>
+          <input [matTooltip]="position.controls.name.value" [formControl]="position.controls.name" matInput readonly>
+        </mat-form-field>
+
+        <mat-form-field class="mr-3 flex-1">
+          <mat-label>{{ 'Preis' }}</mat-label>
+          <input [formControl]="position.controls.prize" matInput [readonly]="!position.controls.isFlexPrice.value"
+                 type="number">
+          <span matTextSuffix>{{ '€' }}</span>
+        </mat-form-field>
+
+        <mat-form-field class="mr-3 flex-1">
+          <mat-label>{{ 'Anzahl' }}</mat-label>
+          <input [formControl]="position.controls.count" type="number" matInput>
+          <span matTextSuffix>{{ position.controls.unit.value === Unit.HOUR ? 'Stunde' : 'Stück' }}</span>
+        </mat-form-field>
+
+        <mat-form-field class="mr-3 flex-1">
+          <mat-label>{{ 'Rabatt' }}</mat-label>
+          <input [formControl]="position.controls.discount" type="number" matInput>
+          <span matTextSuffix>{{ '%' }}</span>
+        </mat-form-field>
+
+        <mat-form-field class="mr-3 flex-1">
+          <input
+            [value]="position.controls.prize.value | calcPrize: position.controls.count.value : position.controls.isNegativePosition.value : position.controls.discount.value | currency: 'EUR'"
+            matInput readonly>
+          <span matTextPrefix>{{ '=' }}</span>
+        </mat-form-field>
+
+        <button class="mt-[10px]" mat-raised-button (click)="deleteArticle(position.controls.id.value)">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </form>
+    }
+  </div>
+
+  <mat-divider></mat-divider>
+
+  <div class="flex flex-col mt-3">
+    <label>{{ 'Gesamtkosten:' }}</label>
+    <span>{{ positions() | calcTotalPrize: formGroup.controls.discount.value | currency: 'EUR' }}</span>
+  </div>
+
+  <div class="flex justify-end my-3">
+    <button (click)="onSave()" [disabled]="formGroup.invalid || formGroup.controls.positions.length === 0" class="mr-3"
+            mat-raised-button>{{ 'Save' }}
+    </button>
+    <button (click)="onCancel()" mat-flat-button>{{ 'Cancel' }}</button>
+  </div>
+</div>

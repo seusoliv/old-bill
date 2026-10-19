@@ -1,0 +1,144 @@
+<div>
+  <h1>{{ 'Hilfe' }}</h1>
+
+  <!-- Domainwechsel -->
+  <mat-card appearance="raised" class="mt-6">
+    <mat-card-header>
+      <mat-card-title>Domainwechsel – Daten migrieren</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="text-sm text-gray-600 mt-2">
+        Da alle Daten lokal im Browser gespeichert sind (IndexedDB), sind sie an die jeweilige Domain gebunden.
+        Beim Wechsel von <strong>localhost</strong> auf <strong>easy-bill.oe-home.de</strong> müssen die Daten
+        manuell übertragen werden.
+      </p>
+
+      <mat-divider class="my-4"></mat-divider>
+
+      <!-- Schritt 1 -->
+      <div class="flex gap-3 mt-4">
+        <span class="w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center shrink-0">1</span>
+        <div>
+          <p class="font-semibold text-sm">Backend-Server starten (auf dem lokalen Rechner)</p>
+          <p class="text-sm text-gray-500 mt-1">
+            Der Export-Vorgang benötigt den laufenden Backend-Server.
+            Stelle sicher, dass der Server auf Port 4000 läuft, bevor du exportierst.
+          </p>
+        </div>
+      </div>
+
+      <!-- Schritt 2 -->
+      <div class="flex gap-3 mt-4">
+        <span class="w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center shrink-0">2</span>
+        <div>
+          <p class="font-semibold text-sm">Aufträge exportieren</p>
+          <p class="text-sm text-gray-500 mt-1">
+            Öffne auf <strong>localhost</strong> die Seite <em>Aufträge</em> und klicke auf den
+            <i class="fa-solid fa-download"></i>-Button (Export). Die Datei wird auf dem Server gespeichert unter:
+          </p>
+          <code class="block mt-2 bg-gray-100 rounded px-3 py-2 text-xs">
+            [FILE_SAVE_LOCATION]/backup_orders/orders_backup.json
+          </code>
+        </div>
+      </div>
+
+      <!-- Schritt 3 -->
+      <div class="flex gap-3 mt-4">
+        <span class="w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center shrink-0">3</span>
+        <div>
+          <p class="font-semibold text-sm">Kunden exportieren</p>
+          <p class="text-sm text-gray-500 mt-1">
+            Öffne die Seite <em>Kunden</em> und klicke auf den Export-Button. Die Datei wird gespeichert unter:
+          </p>
+          <code class="block mt-2 bg-gray-100 rounded px-3 py-2 text-xs">
+            [FILE_SAVE_LOCATION]/backup_customer/customer_backup.json
+          </code>
+        </div>
+      </div>
+
+      <!-- Schritt 4 -->
+      <div class="flex gap-3 mt-4">
+        <span class="w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center shrink-0">4</span>
+        <div>
+          <p class="font-semibold text-sm">Backup-Dateien bereithalten</p>
+          <p class="text-sm text-gray-500 mt-1">
+            Kopiere die beiden JSON-Dateien auf deinen Computer (z.B. Desktop), damit du sie im nächsten Schritt
+            hochladen kannst.
+          </p>
+        </div>
+      </div>
+
+      <!-- Schritt 5 -->
+      <div class="flex gap-3 mt-4">
+        <span class="w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center shrink-0">5</span>
+        <div>
+          <p class="font-semibold text-sm">Aufträge auf neuer Domain importieren</p>
+          <p class="text-sm text-gray-500 mt-1">
+            Öffne auf <strong>easy-bill.oe-home.de</strong> die Seite <em>Aufträge</em> und klicke auf den
+            <i class="fa-solid fa-file-import"></i>-Button. Wähle die Datei <code class="text-xs bg-gray-100 px-1 rounded">orders_backup.json</code> aus
+            und bestätige mit <em>Importieren</em>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Schritt 6 -->
+      <div class="flex gap-3 mt-4">
+        <span class="w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center shrink-0">6</span>
+        <div>
+          <p class="font-semibold text-sm">Kunden auf neuer Domain importieren</p>
+          <p class="text-sm text-gray-500 mt-1">
+            Öffne die Seite <em>Kunden</em> und klicke auf den Import-Button. Wähle
+            <code class="text-xs bg-gray-100 px-1 rounded">customer_backup.json</code> aus.
+          </p>
+        </div>
+      </div>
+
+      <!-- Hinweis Artikel -->
+      <div class="flex gap-3 mt-4">
+        <span class="w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center shrink-0">7</span>
+        <div>
+          <p class="font-semibold text-sm">Artikel importieren (optional)</p>
+          <p class="text-sm text-gray-500 mt-1">
+            Artikel können über die Seite <em>Artikel</em> per Excel-Import (.xlsx) neu angelegt werden.
+            Es gibt keinen automatischen Backup-Export für Artikel.
+          </p>
+        </div>
+      </div>
+
+      <mat-divider class="my-4"></mat-divider>
+
+      <p class="text-xs text-gray-400">
+        <i class="fa-solid fa-circle-info mr-1"></i>
+        Alle importierten Daten behalten ihre ursprünglichen IDs – Verknüpfungen zwischen Aufträgen und Kunden
+        bleiben erhalten.
+      </p>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Datenquelle -->
+  <mat-card appearance="raised" class="mt-6">
+    <mat-card-header>
+      <mat-card-title>Datenquelle</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="text-sm text-gray-600 mt-2">
+        Steuert, ob die Daten lokal im Browser (<strong>IndexedDB</strong>) oder im
+        Backend (<strong>SQLite</strong>) gespeichert werden. Die Einstellung wird
+        gespeichert und beim nächsten Laden angewendet – beim Umschalten wird die
+        Seite automatisch neu geladen.
+      </p>
+
+      <mat-divider class="my-4"></mat-divider>
+
+      <mat-slide-toggle
+        [checked]="sqliteEnabled()"
+        (change)="onToggleStorageMode($event.checked)">
+        SQLite-Backend verwenden
+        <span class="text-sm text-gray-500">
+          ({{ sqliteEnabled() ? 'aktiv' : 'IndexedDB aktiv' }})
+        </span>
+      </mat-slide-toggle>
+    </mat-card-content>
+  </mat-card>
+
+</div>

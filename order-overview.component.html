@@ -1,0 +1,84 @@
+<div>
+  <h1>{{ 'Auftragsübersicht' }}</h1>
+  <div class="flex justify-between mt-4">
+    <div class="flex gap-4 items-center">
+      <mat-form-field>
+        <input [formControl]="filterControl"
+               matInput
+               placeholder="Auftrag suchen"
+               type="text">
+      </mat-form-field>
+      <mat-form-field>
+        <mat-select [value]="sortField()" (valueChange)="sortField.set($event)">
+          <mat-option value="orderNumber">Auftragsnummer</mat-option>
+          <mat-option value="customerName">Kundenname</mat-option>
+          <mat-option value="createdDate">Erstelldatum</mat-option>
+          <mat-option value="total">Gesamtbetrag</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <button mat-raised-button (click)="toggleSortDirection()" class="mb-4">
+        @if (sortDirection() === 'asc') {
+          <i class="fa-solid fa-arrow-up-short-wide"></i>
+        } @else {
+          <i class="fa-solid fa-arrow-down-wide-short"></i>
+        }
+      </button>
+    </div>
+    <div class="flex gap-6">
+      <button (click)="onAddOrder()" mat-fab>
+        <i class="fa-solid fa-plus"></i>
+      </button>
+      <button (click)="onImportOrders()" mat-fab>
+        <i class="fa-solid fa-file-import"></i>
+      </button>
+      <button (click)="onExportOrders()" class="mr-4" mat-fab>
+        <i class="fa-solid fa-download"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap">
+    @for (order of sortedOrders(); track order.orderNumber) {
+      <mat-card class="w-[450px] h-[300px] m-3" appearance="raised">
+        <mat-card-header>
+          <mat-card-title-group>
+            <mat-card-title class="ellipsis">{{ order.orderNumber + '. ' + order.customerName }}</mat-card-title>
+          </mat-card-title-group>
+        </mat-card-header>
+        <mat-card-content>
+          <app-order-info [order]="order"></app-order-info>
+        </mat-card-content>
+        <mat-card-footer class="flex justify-between m-3">
+          <div>
+            @if (order.state !== OrderState.CLOSED) {
+              <button class="mr-2" mat-raised-button (click)="onCreateBill(order)">
+                <i class="fa-solid fa-file-pdf"></i>
+              </button>
+            }
+            @if (order.state !== OrderState.OPEN && order.state !== OrderState.CLOSED) {
+              @if (order.isMailAddressAvailable) {
+                <button class="mr-2" mat-raised-button (click)="onSendMail(order)">
+                  <i class="fa-regular fa-envelope"></i>
+                </button>
+              }
+              <button class="mr-2" mat-raised-button (click)="onUpdateOrderState(order)">
+                <i class="fa-regular fa-credit-card"></i>
+              </button>
+            }
+          </div>
+          @if (order.state !== OrderState.CLOSED) {
+            <div>
+              <button class="mr-2" mat-raised-button (click)="onEditOrder(order)">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+
+              <button mat-raised-button (click)="onDeleteOrder(order.orderNumber!)">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          }
+        </mat-card-footer>
+      </mat-card>
+    }
+  </div>
+</div>

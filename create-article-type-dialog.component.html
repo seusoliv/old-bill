@@ -1,0 +1,43 @@
+<form [formGroup]="formGroup" class="p-8">
+  <h1 class="mb-3">{{ data() !== null ? 'Artikel editieren' : 'Artikel anlegen' }}</h1>
+
+  <mat-form-field class="mr-6">
+    <mat-label>{{ 'Bezeichnung' }}</mat-label>
+    <input [formControl]="formGroup.controls.name" matInput type="text">
+  </mat-form-field>
+
+  <mat-form-field>
+    <mat-label>{{ 'Artikelnummer' }}</mat-label>
+    <input [formControl]="formGroup.controls.articleNumber" matInput type="text">
+  </mat-form-field>
+
+  <div class="flex gap-6">
+    <mat-form-field>
+      <mat-label>{{ 'Preis' }}</mat-label>
+      <input [formControl]="formGroup.controls.prize" matInput type="number">
+    </mat-form-field>
+
+    <mat-form-field class="example-full-width">
+      <mat-label>{{ 'Einheit' }}</mat-label>
+      <input [formControl]="formGroup.controls.unit"
+             [matAutocomplete]="auto"
+             matInput
+             placeholder="Pick one"
+             type="text">
+      <mat-autocomplete #auto="matAutocomplete">
+        <mat-option [value]="Unit.PIECE">{{ 'Stück' }}</mat-option>
+        <mat-option [value]="Unit.HOUR">{{ 'Stunde' }}</mat-option>
+      </mat-autocomplete>
+    </mat-form-field>
+  </div>
+
+  <div class="block align-middle mb-6">
+    <label>{{ 'Gutschein' }}</label>
+    <mat-checkbox [formControl]="formGroup.controls.isNegativePosition"></mat-checkbox>
+  </div>
+
+  <div class="flex justify-around mb-3">
+    <button (click)="onSave()" [disabled]="formGroup.invalid" mat-raised-button>{{ 'Save' }}</button>
+    <button (click)="onCancel()" mat-flat-button>{{ 'Cancel' }}</button>
+  </div>
+</form>

@@ -1,0 +1,52 @@
+<div>
+  <h1>{{ 'Artikelübersicht' }}</h1>
+  <div class="flex justify-between mt-4">
+    <mat-form-field>
+      <input [formControl]="filterControl"
+             matInput
+             placeholder="Artikel suchen"
+             type="text">
+    </mat-form-field>
+    <div>
+      <button (click)="onAddArticleType()" class="mr-4" mat-fab>
+        <i class="fa-solid fa-plus"></i>
+      </button>
+      <button class="mr-4" (click)="onImportArticleTypes()" mat-fab>
+        <i class="fa-solid fa-file-import"></i>
+      </button>
+      <button (click)="onExportArticleTypes()" class="mr-4" mat-fab>
+        <i class="fa-solid fa-download"></i>
+      </button>
+      <button (click)="onDeleteAll()" class="mr-4" mat-fab>
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+  </div>
+
+
+  <!--    @if (isLoading()) {-->
+  <!--        <mat-spinner></mat-spinner>-->
+  <!--    }-->
+  <div class="flex flex-wrap">
+    @for (articleType of filteredArticleTypes(); track articleType.id) {
+      <mat-card class="w-[450px] h-[300px] m-3" appearance="raised">
+        <mat-card-header>
+          <mat-card-title-group>
+            <mat-card-title [matTooltip]="articleType.name" class="ellipsis">{{ articleType.name }}</mat-card-title>
+          </mat-card-title-group>
+        </mat-card-header>
+        <mat-card-content>
+          <app-article-type-info [articleType]="articleType"></app-article-type-info>
+        </mat-card-content>
+        <mat-card-footer class="flex justify-end m-3">
+          <button class="mr-2" mat-raised-button (click)="onEditArticleType(articleType)">
+            <i class="fa-solid fa-pen-to-square"></i>
+          </button>
+          <button mat-raised-button (click)="onDeleteArticleType(articleType.id!)">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </mat-card-footer>
+      </mat-card>
+    }
+  </div>
+</div>

@@ -1,0 +1,113 @@
+<div>
+  <h1>{{ 'Dashboard' }}</h1>
+
+  <!-- KPI-Karten -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+    <mat-card appearance="raised">
+      <mat-card-header>
+        <mat-card-title class="text-sm text-gray-500">Gesamtumsatz</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="text-2xl font-bold mt-2">{{ totalRevenue() | currency:'EUR' }}</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="raised">
+      <mat-card-header>
+        <mat-card-title class="text-sm text-gray-500">Umsatz diesen Monat</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="text-2xl font-bold mt-2">{{ revenueThisMonth() | currency:'EUR' }}</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="raised">
+      <mat-card-header>
+        <mat-card-title class="text-sm text-gray-500">Offene Aufträge</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="text-2xl font-bold mt-2">{{ openOrdersCount() }}</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="raised">
+      <mat-card-header>
+        <mat-card-title class="text-sm text-gray-500">Ausstehende Zahlungen</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="text-2xl font-bold mt-2">{{ pendingCount() }}</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Balkendiagramm + Top Kunden -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+
+    <mat-card appearance="raised">
+      <mat-card-header>
+        <mat-card-title>Monatsumsatz (letzte 6 Monate)</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="flex items-end gap-3 h-40 mt-4 px-2">
+          @for (m of monthlyRevenue(); track m.label) {
+            <div class="flex flex-col items-center flex-1">
+              <span class="text-xs text-gray-500 mb-1">{{ m.total | currency:'EUR':'symbol':'1.0-0' }}</span>
+              <div class="w-full bg-indigo-500 rounded-t transition-all duration-500" [style.height.%]="m.heightPct"></div>
+              <span class="text-xs text-gray-600 mt-1">{{ m.label }}</span>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="raised">
+      <mat-card-header>
+        <mat-card-title>Top 5 Kunden</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="mt-4">
+          @for (c of topCustomers(); track c.rank) {
+            <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">
+                  {{ c.rank }}
+                </span>
+                <span class="text-sm font-medium">{{ c.name }}</span>
+              </div>
+              <span class="text-sm font-bold text-gray-700">{{ c.total | currency:'EUR' }}</span>
+            </div>
+          }
+          @if (topCustomers().length === 0) {
+            <p class="text-gray-400 text-sm">Keine Daten vorhanden.</p>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+  </div>
+
+  <!-- Auftragsübersicht -->
+  <div class="mt-4">
+    <mat-card appearance="raised">
+      <mat-card-header>
+        <mat-card-title>Auftragsübersicht</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="flex flex-col gap-3 mt-4">
+          @for (item of stateBreakdown(); track item.label) {
+            <div class="pt-2">
+              <div class="flex justify-between text-sm mb-1">
+                <span class="font-medium">{{ item.label }}</span>
+                <span class="text-gray-500">{{ item.count }} Aufträge ({{ item.pct }}%)</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded h-3">
+                <div class="h-3 rounded transition-all duration-500" [class]="item.colorClass" [style.width.%]="item.pct"></div>
+              </div>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+</div>

@@ -1,0 +1,12 @@
+{
+  "ignore": [
+    ".git",
+    "node_modules",
+    "*.spec.ts"
+  ],
+  "verbose": true,
+  "watch": [
+    "src"
+  ],
+  "ext": "ts"
+}

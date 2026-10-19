@@ -1,0 +1,43 @@
+@if (isLoading() && !isInitialLoading()) {
+  <app-loading-spinner class="absolute z-[5000000] w-full h-full bg-white bg-opacity-70"></app-loading-spinner>
+}
+@if (isInitialLoading()) {
+  <app-inital-loading-indicator class="absolute z-[5000000]" @moveAndScale></app-inital-loading-indicator>
+}
+<div class="flex h-full">
+  <div class="flex flex-col w-[250px] justify-between">
+    <div class="flex-1">
+      <img alt="" src="assets/miri.svg">
+    </div>
+    <div class="flex flex-col justify-center p-3">
+      <button [routerLink]="['/dashboard']" class="mb-2" mat-raised-button>
+        <i class="fa-solid fa-chart-line mr-1"></i>
+        {{ 'Dashboard' }}
+      </button>
+      <button [routerLink]="['/order-overview']" class="mb-2" mat-raised-button>
+        <i class="fa-solid fa-book mr-1"></i>
+        {{ 'Aufträge' }}
+      </button>
+      <button [routerLink]="['/customer-overview']" class="mb-2" mat-raised-button>
+        <i class="fa-solid fa-person mr-1"></i>
+        {{ 'Kunden' }}
+      </button>
+      <button [routerLink]="['/articles-overview']" class="mb-2" mat-raised-button>
+        <i class="fa-solid fa-shop mr-1"></i>
+        {{ 'Artikel' }}
+      </button>
+      <button [routerLink]="['/tax-report']" class="mb-2" mat-raised-button>
+        <i class="fa-solid fa-receipt mr-1"></i>
+        {{ 'Steuerreport' }}
+      </button>
+      <button [routerLink]="['/help']" class="mb-2" mat-raised-button>
+        <i class="fa-solid fa-circle-question mr-1"></i>
+        {{ 'Hilfe' }}
+      </button>
+    </div>
+    <div class="flex-1"></div>
+  </div>
+  <div class="h-full w-full p-6">
+    <router-outlet></router-outlet>
+  </div>
+</div>

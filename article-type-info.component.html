@@ -1,0 +1,20 @@
+<div class="flex flex-col mt-2">
+  <div class="flex flex-col mb-2">
+    <label>{{ 'Artikelnummer:' }}</label>
+    <span>{{ articleType().articleNumber }}</span>
+  </div>
+  <div class="flex flex-col mb-2">
+    <label>{{ 'Preis:' }}</label>
+    <span>{{ articleType().prize | currency: 'EUR' }}</span>
+  </div>
+  <div class="flex justify-between">
+    <div class="flex flex-col mb-2">
+      <label>{{ 'Enheit:' }}</label>
+      <span>{{ articleType().unit === Unit.PIECE ? 'Stück' : 'Stunde' }}</span>
+    </div>
+    <div class="block align-middle">
+      <label>{{ 'Gutschein:' }}</label>
+      <mat-checkbox [checked]="articleType().isNegativePosition" disabled></mat-checkbox>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,17 @@
+{
+  "name": "wohlfühlhaut",
+  "short_name": "wohlfühlhaut",
+  "theme_color": "#ffd9e1",
+  "background_color": "#ffd9e1",
+  "display": "standalone",
+  "scope": "./",
+  "start_url": "./",
+  "icons": [
+   {
+    "src": "icons/miri_with_bg.svg",
+    "sizes": "any",
+    "type": "image/svg+xml",
+    "purpose": "maskable any"
+    }
+  ]
+}

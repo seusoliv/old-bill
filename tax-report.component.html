@@ -1,0 +1,60 @@
+<div>
+  <h1>{{ 'Steuerreport' }}</h1>
+
+  <mat-form-field class="mt-4">
+    <mat-label>Jahr</mat-label>
+    <mat-select [value]="selectedYear()" (valueChange)="selectedYear.set($event)">
+      @for (year of availableYears(); track year) {
+        <mat-option [value]="year">{{ year }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  @for (group of reportData(); track group.label) {
+    <mat-card appearance="raised" class="mt-4">
+      <mat-card-header>
+        <mat-card-title>{{ group.label }}</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <table class="w-full text-sm mt-2">
+          <thead>
+            <tr class="text-left text-gray-500 border-b">
+              <th class="py-1 pr-4">Rech.-Nr.</th>
+              <th class="py-1 pr-4">Kunde</th>
+              <th class="py-1 pr-4">Datum</th>
+              <th class="py-1 text-right">Betrag</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (order of group.orders; track order.orderNumber) {
+              <tr class="border-b border-gray-50">
+                <td class="py-1 pr-4">{{ order.orderNumber }}</td>
+                <td class="py-1 pr-4">{{ order.customerName }}</td>
+                <td class="py-1 pr-4">{{ order.closedDate | date:'dd.MM.yyyy' }}</td>
+                <td class="py-1 text-right font-medium">{{ order.total | currency:'EUR' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </mat-card-content>
+      <mat-card-footer class="flex justify-end px-4 pb-3 pt-2">
+        <span class="text-sm font-semibold">Summe: {{ group.total | currency:'EUR' }}</span>
+      </mat-card-footer>
+    </mat-card>
+  }
+
+  @if (reportData().length === 0) {
+    <p class="mt-6 text-gray-400">Keine abgeschlossenen Aufträge für {{ selectedYear() }}.</p>
+  }
+
+  @if (reportData().length > 0) {
+    <mat-card appearance="raised" class="mt-4">
+      <mat-card-content>
+        <div class="flex justify-between items-center py-2">
+          <span class="font-bold text-base">Gesamtumsatz {{ selectedYear() }}</span>
+          <span class="font-bold text-lg">{{ yearTotal() | currency:'EUR' }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>

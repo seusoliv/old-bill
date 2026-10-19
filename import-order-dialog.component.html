@@ -1,0 +1,18 @@
+<h2 mat-dialog-title>Aufträge importieren</h2>
+<mat-dialog-content>
+  <p class="text-sm text-gray-500 mb-4">
+    Wähle die zuvor exportierte JSON-Datei der Aufträge aus.
+  </p>
+  <input #fileInput type="file" accept=".json" class="hidden" (change)="onFileChange($event)">
+  <button (click)="fileInput.click()" mat-raised-button>
+    <i class="fa-solid fa-file-import mr-1"></i>
+    Datei auswählen
+  </button>
+  @if (fileName()) {
+    <p class="mt-2 text-sm text-gray-600">{{ fileName() }}</p>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button (click)="onCancel()" mat-button>Abbrechen</button>
+  <button (click)="onImport()" [disabled]="!fileName()" mat-raised-button>Importieren</button>
+</mat-dialog-actions>

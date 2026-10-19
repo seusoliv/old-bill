@@ -1,0 +1,37 @@
+<div>
+  <div class="flex my-2">
+    <div class="flex flex-col flex-1">
+      <label>{{ 'Erstellt:' }}</label>
+      <span>{{ order().createdDate | date: 'dd.MM.yyyy' }}</span>
+    </div>
+
+    <div class="flex flex-col flex-1">
+      <label>{{ 'Zahltag:' }}</label>
+      <span>{{ order().payDate | date: 'dd.MM.yyyy' | noValue }}</span>
+    </div>
+  </div>
+
+  <div class="flex mb-2">
+    <div class="flex flex-col flex-1">
+      <label>{{ 'Rabatt:' }}</label>
+      <span>{{ (order().discount | noValue) + ' %' }}</span>
+    </div>
+
+    <div class="flex flex-col flex-1">
+      <label>{{ 'Status:' }}</label>
+      <span>{{ order().state | orderState }}</span>
+    </div>
+  </div>
+
+  <div class="flex mb-2">
+    <div class="flex flex-col flex-1">
+      <label>{{ 'Artikelanzahl:' }}</label>
+      <span>{{ order().positions.length }}</span>
+    </div>
+
+    <div class="flex flex-col flex-1">
+      <label>{{ 'Summe:' }}</label>
+      <span>{{ order().total | currency: 'EUR' }}</span>
+    </div>
+  </div>
+</div>

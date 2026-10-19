@@ -1,0 +1,10 @@
+<div class="p-8">
+  <h1 class="mb-3">{{ "Artikel importieren" }}</h1>
+  <input (change)="onFileChange($event)" accept=".xlsx, .xls" type="file">
+</div>
+
+<div class="flex justify-around mb-3">
+  <button (click)="onSave()" mat-raised-button>{{ 'Save' }}</button>
+  <button (click)="onCancel()" mat-flat-button>{{ 'Cancel' }}</button>
+</div>
+

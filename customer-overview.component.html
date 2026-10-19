@@ -1,0 +1,49 @@
+<div>
+  <h1>{{ 'Kundenübersicht' }}</h1>
+  <div class="flex justify-between mt-4">
+    <mat-form-field>
+      <input [formControl]="filterControl"
+             matInput
+             placeholder="Kunde suchen"
+             type="text">
+    </mat-form-field>
+    <div class="flex">
+      <button (click)="onAddCustomer()" class="mr-8" mat-fab>
+        <i class="fa-solid fa-plus"></i>
+      </button>
+      <button (click)="onImportCustomers()" class="mr-4" mat-fab>
+        <i class="fa-solid fa-file-import"></i>
+      </button>
+      <button (click)="onExportCustomers()" class="mr-4" mat-fab>
+        <i class="fa-solid fa-download"></i>
+      </button>
+    </div>
+  </div>
+
+
+  <!--    @if (isLoading()) {-->
+  <!--        <mat-spinner></mat-spinner>-->
+  <!--    }-->
+  <div class="flex flex-wrap">
+    @for (customer of filteredCustomers(); track customer.id) {
+      <mat-card class="w-[350px] h-[250px] m-3" appearance="raised">
+        <mat-card-header>
+          <mat-card-title-group>
+            <mat-card-title>{{ customer.surname + ' ' + customer.name }}</mat-card-title>
+          </mat-card-title-group>
+        </mat-card-header>
+        <mat-card-content>
+          <app-customer-info [customer]="customer"></app-customer-info>
+        </mat-card-content>
+        <mat-card-footer class="flex justify-end m-3">
+          <button class="mr-2" mat-raised-button (click)="onEditCustomer(customer)">
+            <i class="fa-solid fa-pen-to-square"></i>
+          </button>
+          <button mat-raised-button (click)="onDeleteCustomer(customer.id!)">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </mat-card-footer>
+      </mat-card>
+    }
+  </div>
+</div>

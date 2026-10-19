@@ -1,0 +1,11 @@
+<div class="flex flex-col mt-2">
+  <div class="flex flex-col mb-2">
+    <label>{{ 'Email:' }}</label>
+    <span>{{ customer().email | noValue }}</span>
+  </div>
+  <div class="flex flex-col">
+    <label>{{ 'Adresse:' }}</label>
+    <span>{{ customer().zipCode }} {{ customer().city }}</span>
+    <span>{{ customer().street }} {{ customer().houseNumber }}</span>
+  </div>
+</div>
