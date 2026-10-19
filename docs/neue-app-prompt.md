@@ -102,7 +102,7 @@ Dieser Abschnitt beschreibt **abschließend**, welche Funktionen EasyBill mindes
 
 **Datensicherung und Agent-Zugriff**
 - JSON-Export der eigenen Kunden, Artikel und Aufträge.
-- Alle oben genannten Funktionen sind auch über den MCP-Server nutzbar (M9).
+- Über den MCP-Server ist **nur die Auftragsbearbeitung** nutzbar: Kunden suchen bzw. anlegen, Artikel nachschlagen, Aufträge bearbeiten, Rechnung ausstellen und versenden, Zahlung erfassen, Gutschein einlösen (Liste in M9). Alles andere gibt es nur in der Web-App.
 
 ### A.3 Tech-Stack (vor Projektstart auf aktuelle stabile Versionen prüfen)
 
@@ -237,12 +237,12 @@ Bisher fest im Code verdrahtete Werte, die ebenfalls in die User-Settings wander
 
 **Regeln für die Settings:**
 - **Validierung** mit zod auf Client und Server (IBAN-Prüfsumme, USt-IdNr.-Format, E-Mail, Farben als Hex, Textlängen, nur bekannte Platzhalter).
-- **Pflichtangaben vor der ersten Rechnung:** Firmenname, Adresse, Steuernummer bzw. USt-IdNr. (je nach Modus) und eine Bankverbindung. Fehlt etwas, verhindert `issue_invoice` das Ausstellen, und die Fehlermeldung nennt die fehlenden Felder. Das gilt auch für MCP; der Agent bekommt eine klare Meldung, was der User ergänzen muss.
+- **Pflichtangaben vor der ersten Rechnung:** Firmenname, Adresse, Steuernummer bzw. USt-IdNr. (je nach Modus) und eine Bankverbindung. Fehlt etwas, verhindert `issue_invoice` das Ausstellen, und die Fehlermeldung nennt die fehlenden Felder. Über MCP bekommt der Agent nur die Bereiche genannt, die der User ergänzen muss, keine Werte (M9).
 - **Snapshot:** Beim Ausstellen fließen die zu diesem Zeitpunkt gültigen Settings in den Invoice-Snapshot (A.4.2). Spätere Änderungen (z. B. neue Adresse oder Bank) verändern bereits ausgestellte Rechnungen **nie**.
 - **Verlauf:** Änderungen am Firmenprofil, an der Bankverbindung, am Steuermodus und an den Nummernkreisen landen im Audit-Log (alter und neuer Wert; Secrets nur als „geändert“).
 - **Secrets** (SMTP-Passwort, Stripe-Key, Webhook-Secrets) sind write-only: Die API gibt nur „gesetzt seit …“ zurück. Das Ändern erfordert eine erneute Anmeldung (Re-Auth).
 - **Export/Import der Settings** als JSON (ohne Secrets), z. B. für einen Umzug.
-- **MCP:** `get_settings` (Scope `settings:read`, ohne Secrets) und `update_settings` (Scope `settings:write`; nur Texte, Firmenprofil, Zahlungsziel und Design). Secrets, Steuermodus und Nummernkreise sind per MCP **nicht** änderbar.
+- **MCP:** Einstellungen sind für Agents **weder lesbar noch änderbar** (siehe M9). Es gibt dafür keine Tools und keine Scopes.
 
 **Server-Config (`.env`), abschließend:** `NODE_ENV`, `PORT`, `PUBLIC_BASE_URL`, `MONGODB_URI`, `MONGODB_DB`, `MONGODB_TLS_CA_FILE` (optional), `SESSION_SECRET`, `DATA_ENCRYPTION_KEY` (+ `DATA_ENCRYPTION_KEY_ID`), `OAUTH_JWKS_KEYS` bzw. ein Pfad dazu, `SETUP_TOKEN` (nur für die Ersteinrichtung), `SYSTEM_SMTP_*` (nur für Einladungs- und Reset-Mails des Betreibers), `TRUST_PROXY`, `LOG_LEVEL`, `RATE_LIMIT_*`, `HIBP_ENABLED`, `ALLOWED_SMTP_PRIVATE_HOSTS` (optional, M6). Die Liste wird beim Start per zod validiert und ist in `.env.example` dokumentiert. Neue Variablen kommen nur hinzu, wenn sie diese Regel erfüllen.
 
@@ -469,7 +469,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - **Kurzlebige Access Tokens** (5–15 min), signiert mit ES256 oder EdDSA, mit JWKS-Rotation. **Refresh-Token-Rotation** mit Erkennung von Wiederverwendung: wird ein altes Refresh Token erneut benutzt, widerruft der Server die ganze Token-Familie. Absolute Lebensdauer begrenzen (z. B. 30 Tage).
   - **`state` bzw. PKCE gegen CSRF**, `iss`-Parameter in der Authorization Response (RFC 9207) gegen Mix-up-Angriffe.
   - DPoP (RFC 9449) optional unterstützen, wenn Clients es anbieten.
-- **Scopes** (fein und verständlich benannt): `customers:read`, `customers:write`, `articles:read`, `articles:write`, `orders:read`, `orders:write`, `invoices:read`, `invoices:issue`, `invoices:send`, `payments:write`, `reports:read`, `settings:read`, `settings:write`, `offline_access`. Default ist nur lesend.
+- **Scopes** (nur für die Auftragsbearbeitung, passend zu M9): `customers:read`, `customers:write`, `articles:read`, `orders:read`, `orders:write`, `invoices:read`, `invoices:issue`, `invoices:send`, `payments:write`, `vouchers:redeem`, `offline_access`. Default ist nur lesend. Es gibt **keine** Scopes für Einstellungen, Reports, Export oder Administration; der Authorization Server lehnt unbekannte Scopes ab.
 - **Consent-Screen:** Clientname, Herkunft (Domain der Redirect-URI bzw. Metadata-URL), Hinweis bei unbekannten oder unverifizierten Clients, angeforderte Scopes in Klartext, einzelne Scopes abwählbar. Einwilligung pro Client und Scope-Set speichern.
 - **„Verbundene Apps“** in den Einstellungen: alle Clients mit Scopes, letzter Nutzung und „Zugriff widerrufen“ (widerruft alle Tokens sofort).
 - Einträge im Audit-Log (Consent, Token-Ausgabe pro Client, Widerruf, Wiederverwendung eines Refresh Tokens).
@@ -480,7 +480,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 
 ### M9 – MCP-Server (Streamable HTTP, OAuth-geschützt)
 
-**Ziel:** Alle fachlichen Funktionen als MCP-Tools für Agents, abgesichert per OAuth aus M8.
+**Ziel:** Die Auftragsbearbeitung als MCP-Tools für Agents, abgesichert per OAuth aus M8. Der Funktionsumfang ist bewusst kleiner als die Web-App.
 
 **Aufgaben**
 - `@modelcontextprotocol/sdk` (aktuelle Version), **Streamable HTTP** unter `/mcp` (stateless oder mit sicherer `Mcp-Session-Id`). Kein stdio mehr, weil die Daten nicht mehr lokal liegen.
@@ -489,19 +489,21 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - Geprüft werden Signatur, `iss`, `aud` (= `/mcp`), `exp` und Scopes.
   - Der `sub` des Tokens wird zum `ownerId`; die Tools nutzen die Services aus M3 mit diesem Kontext.
   - `Origin`-Header validieren (Schutz vor DNS-Rebinding).
-- **Tools** (die Namen sind verbindlich), jeweils mit zod-Input-Schema, `outputSchema`/`structuredContent` und Annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`):
-  - Kunden: `list_customers`, `get_customer`, `create_customer`, `update_customer`, `delete_customer`, `get_customer_with_orders`.
-  - Artikel: `list_article_types` (Filter `unit`), `get_article_type`, `get_article_type_by_number`, `create_article_type`, `update_article_type`, `delete_article_type`, `clear_article_types`.
-  - Aufträge: `list_orders` (Filter laut A.2, plus `start`/`end` für Pagination), `get_order`, `create_order`, `update_order`, `delete_order`, `get_orders_by_customer`.
-  - Rechnungen: `issue_invoice`, `list_invoices`, `get_invoice`, `get_overdue_invoices`, `cancel_invoice`, `record_payment`, `send_invoice_mail`, `get_invoice_pdf` (liefert das PDF als eingebettete Resource bzw. Base64-Blob, im Speicher erzeugt). **Hinweis an das Modell:** Die Datei wird nicht auf dem Server gespeichert; der User speichert sie beim nächsten Öffnen der App (Banner aus M5).
-  - Gutscheine: `list_vouchers`, `get_voucher`, `lookup_voucher`, `create_external_voucher`, `sell_voucher`, `redeem_voucher` (auf eine Rechnung), `get_voucher_liability`.
-  - Ausgaben (aus M10d, sobald vorhanden): `list_expenses`, `create_expense`, `update_expense`, `get_eur_report`, `get_small_business_status`.
-  - Einstellungen: `get_settings`, `update_settings` (Einschränkungen laut A.8).
-  - Reports: `get_revenue_report` (Jahr bzw. Zeitraum, gruppiert nach Monat), `get_dashboard_kpis`, `get_tax_report`.
-  - Neu aus M10, sobald vorhanden: Angebote, Mahnungen, wiederkehrende Rechnungen.
-  - Datensicherung: `export_my_data` (JSON-Export der eigenen Daten als Resource).
+- **Grundsatz – Agent nur für die Auftragsbearbeitung:** Der MCP-Server bietet **ausschließlich** Aktionen, die nötig sind, um einen Auftrag zu erfassen, abzurechnen, zu versenden und als bezahlt zu markieren. Es gibt **keine** Tools für Einstellungen (weder lesen noch schreiben), Auswertungen und Reports (Dashboard, Umsatz, Steuerreport, EÜR, Kleinunternehmergrenze), Datenexport, Ausgaben, Artikelpflege, Gutscheinverkauf, Storno, Benutzer- und Kontoverwaltung. Diese Funktionen gibt es nur in der Web-App. Neue Tools kommen nur hinzu, wenn sie diesem Grundsatz entsprechen; das wird per ADR entschieden.
+- **Tools** (die Namen sind verbindlich, die Liste ist abschließend), jeweils mit zod-Input-Schema, `outputSchema`/`structuredContent` und Annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`):
+  - **Kunden** (um den Auftrag einem Kunden zuzuordnen): `list_customers` (Suche), `get_customer`, `create_customer`, `update_customer` (z. B. eine korrigierte Adresse oder neue E-Mail). **Kein** Löschen.
+  - **Artikel** (nur lesen, um Positionen zu befüllen): `list_article_types` (Suche, Filter `unit`), `get_article_type`, `get_article_type_by_number`.
+  - **Aufträge:** `list_orders` (Filter laut A.2, plus `start`/`end` für Pagination), `get_order`, `get_orders_by_customer`, `create_order`, `update_order`, `delete_order` (nur Aufträge ohne ausgestellte Rechnung).
+  - **Rechnung zum Auftrag:** `issue_invoice`, `get_invoice`, `list_invoices` (nur Nummer, Kunde, Datum, Betrag und Status, zum Nachverfolgen offener Rechnungen), `get_overdue_invoices`, `send_invoice_mail`, `get_invoice_pdf` (liefert das PDF als eingebettete Resource bzw. Base64-Blob, im Speicher erzeugt; **Hinweis an das Modell:** Die Datei wird nicht auf dem Server gespeichert; der User speichert sie beim nächsten Öffnen der App, siehe M5), `record_payment` (Zahlungseingang erfassen, um die Rechnung als bezahlt zu markieren; Zahlungsart `VOUCHER` ist ausgeschlossen, dafür gibt es `redeem_voucher`).
+  - **Gutschein auf dem Auftrag einlösen:** `lookup_voucher` (prüft nur, ob ein Code gültig ist und wie hoch das Restguthaben ist; **keine** Liste aller Gutscheine) und `redeem_voucher` (auf eine Rechnung).
+  - **Neu aus M10, sobald vorhanden** und nur, wenn es zur Auftragsbearbeitung gehört: `create_quote`, `get_quote`, `convert_quote_to_order` (Angebote) sowie `get_dunning_status` (Mahnstatus einer Rechnung, nur lesen). Mahnungen auslösen, wiederkehrende Rechnungen anlegen und E-Rechnungs-Export (M11) bleiben in der Web-App.
+- **Keine Einstellungen nach außen:**
+  - Kein Tool gibt Einstellungswerte zurück (Firmenprofil, Bankdaten, Steuermodus, Nummernkreise, Textvorlagen, SMTP, Zahlungsanbieter).
+  - Fehlen Pflichtangaben für eine Rechnung, meldet `issue_invoice` nur „Einstellungen unvollständig, bitte in der App ergänzen: Firmenprofil, Bankverbindung“, also Bereiche, keine Werte.
+  - Das Rechnungs-PDF aus `get_invoice_pdf` enthält die auf der Rechnung gedruckten Firmen- und Bankdaten. Das ist der Inhalt des Belegs und keine Einstellung; es ist zulässig.
+  - Ein Test stellt sicher, dass keine Tool-Antwort Felder aus `UserSettings` enthält.
 - **Sicherheit für Agents:**
-  - Destruktive bzw. folgenreiche Tools (`delete_*`, `clear_*`, `issue_invoice`, `send_invoice_mail`, `cancel_invoice`) brauchen eigene Scopes. Wo der Client es unterstützt, holen sie per **Elicitation** eine Bestätigung ein; sonst verlangen sie einen Parameter `confirm: true` und beschreiben die Folgen im Tool-Text.
+  - Folgenreiche Tools (`delete_order`, `issue_invoice`, `send_invoice_mail`, `record_payment`, `redeem_voucher`) brauchen eigene Scopes. Wo der Client es unterstützt, holen sie per **Elicitation** eine Bestätigung ein; sonst verlangen sie einen Parameter `confirm: true` und beschreiben die Folgen im Tool-Text.
   - Rate-Limits pro Client und User.
   - Tool-Ausgaben enthalten keine Secrets. Freitextfelder aus der DB werden als Daten gekennzeichnet (Prompt-Injection-Hinweis in der Tool-Beschreibung).
   - Jeder Tool-Aufruf landet im Audit-Log (Client, Tool, Ergebnis, ohne Payload-PII).
@@ -515,7 +517,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 
 - **Angebote** (eigener Nummernkreis): erstellen, als PDF (lokal ablegen wie in M5), per Mail senden, Status `DRAFT/SENT/ACCEPTED/REJECTED/EXPIRED` mit Gültigkeitsdatum. „In Auftrag umwandeln“ übernimmt die Positionen.
 - **Wiederkehrende Rechnungen:** Vorlage mit Intervall (monatlich, quartalsweise, jährlich), Startdatum, Ende optional und Modus „Entwurf erzeugen“ oder „automatisch ausstellen und senden“. Ein Scheduler in der API ist idempotent, vergibt kein Ausführungsdatum doppelt und ist auch bei mehreren Instanzen sicher (Lock-Dokument in Mongo mit TTL). Automatisch ausgestellte Rechnungen erscheinen im Nachspeicher-Banner.
-- Neue MCP-Tools und Scopes ergänzen.
+- MCP nur laut M9: `create_quote`, `get_quote`, `convert_quote_to_order`. Wiederkehrende Rechnungen sind nicht über MCP verfügbar.
 
 ### M10b – Mahnwesen & Zahlungen
 
@@ -548,7 +550,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - Beleg als PDF oder Foto auswählen oder auf dem Handy direkt mit der Kamera aufnehmen (`<input type="file" accept="image/*,application/pdf" capture>`).
   - Die Datei wird im Rechnungsordner unter `Belege/{YYYY}/{Datum}_{Lieferant}_{Betrag}.{ext}` gespeichert (File System Access API bzw. Download-Fallback).
   - Der **Server speichert nur Metadaten und den SHA-256**, nie die Datei. Die Integritätsprüfung aus M5 gilt auch für Belege.
-- **Agent-Unterstützung:** Über MCP kann ein Agent Ausgaben anlegen, z. B. aus einer Rechnung, die er gelesen hat. Den Beleg legt der User beim nächsten Öffnen ab (Banner „X Ausgaben ohne Beleg“).
+- **Kein MCP-Zugriff:** Ausgaben, EÜR und die Kleinunternehmergrenze sind nur in der Web-App verfügbar (M9).
 - **Vollständige EÜR:**
   - Einnahmen (A.2) minus Ausgaben und AfA, nach Kategorie und Monat, mit Jahresvergleich.
   - Im Modus `STANDARD` zusätzlich vereinnahmte USt, Vorsteuer und Zahllast als Vorbereitung für die Umsatzsteuer-Voranmeldung (keine ELSTER-Übermittlung, nur eine Übersicht).
@@ -570,7 +572,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 
 - Pro Kunde einstellbar: Rechnung als **ZUGFeRD/Factur-X** (PDF/A-3 mit eingebettetem CII-XML, Profil mindestens EN 16931) oder als **XRechnung** (UBL oder CII, für öffentliche Auftraggeber mit Leitweg-ID).
 - Das XML wird aus dem Invoice-Snapshot erzeugt und gegen die offiziellen Schemas bzw. Schematron validiert (KoSIT-Validator in der CI). Die PDF/A-3-Konvertierung läuft per `pdf-lib` oder vergleichbar. Die Ablage erfolgt wie in M5 lokal, der Hash wird über die finale Datei gebildet.
-- MCP-Tool `get_invoice_xml`.
+- Kein eigenes MCP-Tool (Auslieferung nur in der Web-App, M9).
 
 ---
 
