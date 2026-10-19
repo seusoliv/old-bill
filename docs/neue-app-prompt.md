@@ -197,6 +197,55 @@ Das alte UI (feste 250-px-Sidebar, Material-Buttons, Dialog-lastige Bedienung) d
 - **Formatierung:** deutsches Zahlen-, Währungs- und Datumsformat; Beträge in Tabellen rechtsbündig mit tabellarischen Ziffern.
 - **Performance:** Initial-Bundle-Budget (z. B. < 250 kB gzip) in `angular.json`, Lighthouse-Score ≥ 90 in allen Kategorien als CI-Check.
 
+### A.8 Konfiguration: Server-Config (.env) vs. User-Settings
+
+**Regel:** In die `.env` gehört **nur, was den Betrieb des Servers betrifft und für alle User gleich ist**. Alles, was zu einem User bzw. seinem Unternehmen gehört, steht in den **User-Settings** in MongoDB. Der User pflegt es in der App, und jeder User hat seine eigenen Werte. Ein User-Wert darf nie als Env-Fallback existieren; fehlt er, führt die App durch das Onboarding (A.7), statt still auf einen globalen Wert auszuweichen.
+
+**Zuordnung der bisherigen `.env`-Variablen** (verbindlich, keine darf verloren gehen):
+
+| Bisherige Variable | Inhalt | Neu |
+|---|---|---|
+| `BUSINESS_NAME` | Firmenname | User-Settings → Firmenprofil |
+| `STREET`, `ZIP_CODE`, `CITY` | Firmenadresse | User-Settings → Firmenprofil (zusätzlich Hausnummer, Land) |
+| `PHONE` | Telefon | User-Settings → Firmenprofil (zusätzlich E-Mail, Website) |
+| `BUSINESS_ICON` | Logo als SVG-String | User-Settings → Firmenprofil: Logo-Upload (SVG oder PNG, max. 512 KB, SVG serverseitig sanitisiert, z. B. mit DOMPurify im SVG-Profil; keine Skripte und keine externen Referenzen) |
+| `IBAN`, `BANK` | Bankverbindung | User-Settings → Bankverbindung (zusätzlich BIC und Kontoinhaber; IBAN mit Prüfsumme validiert, feldverschlüsselt) |
+| `INVOICE_INSTRUCTIONS` | Einleitungstext der Rechnung | User-Settings → Textvorlagen „Rechnung: Einleitung“ |
+| `INVOICE_BODY` | Schlusstext mit `%payDay%` | User-Settings → Textvorlagen „Rechnung: Schlusstext“ |
+| `MAIL_SUBJECT`, `MAIL_Text` | Mail-Betreff und Mail-Text | User-Settings → Textvorlagen „Rechnungsmail: Betreff/Text“ |
+| `SMTP_SERVER`, `SMTP_PORT` | Mailserver (bisher immer implizites TLS) | User-Settings → E-Mail-Versand (Host, Port, TLS-Modus) |
+| `SENDER_MAIL`, `SENDER_PASSWORD` | Absender und Login | User-Settings → E-Mail-Versand (Benutzer, Absenderadresse und -name, Passwort feldverschlüsselt, nie im Klartext an den Client) |
+| `FILE_SAVE_LOCATION` | Ablageordner für PDFs und Backups | User-Settings bzw. Gerät → Rechnungsordner (M5, Handle im Browser des jeweiligen Geräts) |
+| `SQLITE_FILE` | DB-Datei | entfällt; ersetzt durch Server-Config `MONGODB_URI` |
+| `SERVER_PORT` | Port | bleibt Server-Config (`PORT`) |
+| `NODE_ENV` | Umgebung | bleibt Server-Config |
+| Frontend-Konstante `BACKEND_URL` | API-Adresse | entfällt (gleiche Origin, A.4.6) |
+
+Bisher fest im Code verdrahtete Werte, die ebenfalls in die User-Settings wandern: Zahlungsziel (14 Tage), Dateiname des Mail-Anhangs (bisher `Rechnung <Nachname>.pdf`; jetzt ein Muster mit Platzhaltern), Rechnungsnummernformat, Rechnungsdesign bzw. Akzentfarbe.
+
+**Vollständige Struktur der User-Settings** (zod-Schema in `packages/shared`, eine Seite pro Gruppe in der App):
+1. **Firmenprofil:** Firmenname, Inhaber, Adresse, Telefon, E-Mail, Website, Logo, Steuernummer, USt-IdNr., zuständiges Finanzamt (optional), Handelsregister (optional).
+2. **Bankverbindung & Zahlung:** Kontoinhaber, IBAN, BIC, Bank, Zahlungsziel in Tagen, GiroCode an/aus, Bezahllink-Anbieter (Stripe-Key verschlüsselt, PayPal.me-Name), Skonto-Standard (optional).
+3. **Steuern:** Steuermodus (`SMALL_BUSINESS | STANDARD`) mit Stichtag, Standard-Steuersatz, Text des §19-Hinweises, Grenzwerte der Kleinunternehmerregelung (vorbelegt), GWG-Grenze.
+4. **Nummernkreise:** Formate und nächste Nummer für Rechnung, Storno, Angebot, Gutschein und Kunde. Die nächste Nummer darf nur erhöht werden, nie gesenkt (lückenlos, GoBD).
+5. **Dokumente & Design:** Rechnungsdesign-Variante, Akzentfarbe, Fußzeilentexte, Dateinamensmuster für lokale Ablage und Mail-Anhang, Sprache der Dokumente.
+6. **Textvorlagen:** Einleitung und Schlusstext für Rechnung, Angebot, Mahnstufen, Gutschein; Betreff und Text für Rechnungs-, Angebots- und Mahnmails. Mit Platzhalter-Hilfe, Live-Vorschau und „auf Standard zurücksetzen“. Die App liefert sinnvolle deutsche Standardtexte.
+7. **E-Mail-Versand:** SMTP (M6), Absender, Reply-To, BCC an mich, „Testmail senden“.
+8. **Gutscheine:** Standard-Gültigkeit, Code-Format, Behandlung externer Gutscheine (A.2).
+9. **Ablage & Backup:** Rechnungsordner auf diesem Gerät (M5), Backup-Erinnerung, Anzeige der Aufbewahrungsfrist.
+10. **Sicherheit & Konto:** Passwort, MFA, Sessions, verbundene Apps (M8), Datenexport, Konto löschen (M2/M10c).
+
+**Regeln für die Settings:**
+- **Validierung** mit zod auf Client und Server (IBAN-Prüfsumme, USt-IdNr.-Format, E-Mail, Farben als Hex, Textlängen, nur bekannte Platzhalter).
+- **Pflichtangaben vor der ersten Rechnung:** Firmenname, Adresse, Steuernummer bzw. USt-IdNr. (je nach Modus) und eine Bankverbindung. Fehlt etwas, verhindert `issue_invoice` das Ausstellen, und die Fehlermeldung nennt die fehlenden Felder. Das gilt auch für MCP; der Agent bekommt eine klare Meldung, was der User ergänzen muss.
+- **Snapshot:** Beim Ausstellen fließen die zu diesem Zeitpunkt gültigen Settings in den Invoice-Snapshot (A.4.2). Spätere Änderungen (z. B. neue Adresse oder Bank) verändern bereits ausgestellte Rechnungen **nie**.
+- **Verlauf:** Änderungen am Firmenprofil, an der Bankverbindung, am Steuermodus und an den Nummernkreisen landen im Audit-Log (alter und neuer Wert; Secrets nur als „geändert“).
+- **Secrets** (SMTP-Passwort, Stripe-Key, Webhook-Secrets) sind write-only: Die API gibt nur „gesetzt seit …“ zurück. Das Ändern erfordert eine erneute Anmeldung (Re-Auth).
+- **Export/Import der Settings** als JSON (ohne Secrets), z. B. für einen Umzug.
+- **MCP:** `get_settings` (Scope `settings:read`, ohne Secrets) und `update_settings` (Scope `settings:write`; nur Texte, Firmenprofil, Zahlungsziel und Design). Secrets, Steuermodus und Nummernkreise sind per MCP **nicht** änderbar.
+
+**Server-Config (`.env`), abschließend:** `NODE_ENV`, `PORT`, `PUBLIC_BASE_URL`, `MONGODB_URI`, `MONGODB_DB`, `MONGODB_TLS_CA_FILE` (optional), `SESSION_SECRET`, `DATA_ENCRYPTION_KEY` (+ `DATA_ENCRYPTION_KEY_ID`), `OAUTH_JWKS_KEYS` bzw. ein Pfad dazu, `SETUP_TOKEN` (nur für die Ersteinrichtung), `SYSTEM_SMTP_*` (nur für Einladungs- und Reset-Mails des Betreibers), `TRUST_PROXY`, `LOG_LEVEL`, `RATE_LIMIT_*`, `HIBP_ENABLED`, `ALLOWED_SMTP_PRIVATE_HOSTS` (optional, M6). Die Liste wird beim Start per zod validiert und ist in `.env.example` dokumentiert. Neue Variablen kommen nur hinzu, wenn sie diese Regel erfüllen.
+
 ---
 
 ## TEIL B – Meilensteine
@@ -213,7 +262,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 **Aufgaben**
 - Monorepo nach A.3 anlegen (`apps/web`, `apps/api`, `packages/shared`). Gemeinsame `tsconfig` (strict), ESLint, Prettier und EditorConfig einrichten.
 - `apps/api`: Express-5-Grundgerüst mit:
-  - zod-validierter Config (`MONGODB_URI`, `MONGODB_DB`, `PUBLIC_BASE_URL`, `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, `NODE_ENV`, `PORT`, …),
+  - zod-validierter Server-Config, ausschließlich mit den Variablen aus A.8; keine user- oder firmenbezogenen Werte in der `.env`,
   - helmet/CSP, pino-Logging mit Redaction,
   - zentraler Fehlerbehandlung (keine Stacktraces an Clients, RFC 9457 Problem Details),
   - `/healthz` (Liveness) und `/readyz` (Mongo-Ping).
@@ -256,7 +305,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - `Position`: wie in A.2, plus `taxRate` und `unit`. Beträge in Cent.
   - `Order` (Auftrag/Entwurf): wie in A.2, plus `serviceDate` oder `servicePeriod` (Leistungsdatum ist Pflichtangabe nach §14 UStG), `notes`, `legacyOrderNumber?`.
   - `Invoice`: unveränderlicher Snapshot nach A.4.2, mit `invoiceNumber`, `type` (`INVOICE | CANCELLATION | CREDIT_NOTE`), `refInvoiceId?`, `issuedAt`, `dueDate`, `pdfSha256`, `layoutVersion`, `localCopy: {confirmedAt?}`, `status` (`ISSUED | SENT | PARTIALLY_PAID | PAID | CANCELLED | OVERDUE` (abgeleitet)).
-  - `Payment` (Zahlungseingang, `method`: `BANK | CASH | ONLINE | VOUCHER | OTHER`, bei `VOUCHER` mit `voucherId`), `Voucher` und `VoucherSale` (siehe A.2 Gutscheine), `Counter` (Nummernkreise), `UserSettings` (Firmenprofil, Steuermodus, Texte, Zahlungsziel, Nummernformat, Dateinamensmuster, SMTP, GiroCode an/aus, Gutschein-Einstellungen), `AuditEvent`.
+  - `Payment` (Zahlungseingang, `method`: `BANK | CASH | ONLINE | VOUCHER | OTHER`, bei `VOUCHER` mit `voucherId`), `Voucher` und `VoucherSale` (siehe A.2 Gutscheine), `Counter` (Nummernkreise), `UserSettings` (vollständige Struktur und Regeln laut A.8, mit Standardwerten und Migrationen für neue Felder), `AuditEvent`.
   - Die `Invoice` speichert `totalCents` (Rechnungsbetrag), die Gutschein-Einlösungen und `amountDueCents` (zu zahlen). Ein Gutschein wird nie rabattiert und nie als Position geführt.
 - **Gutschein-Codes:** kryptografisch zufällig (`crypto.randomInt`), mindestens 10 Zeichen aus einem eindeutig lesbaren Alphabet (Crockford Base32, ohne 0/O/1/I), gruppiert angezeigt (`XXXX-XXXX-XX`), eindeutig pro User. Restguthaben werden atomar verbucht (`findOneAndUpdate` mit Bedingung `remaining >= betrag`), damit kein Gutschein doppelt eingelöst werden kann.
 - **Steuermodus** in den Settings:
@@ -285,7 +334,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 - **Bibliotheken:** `@node-rs/argon2` (oder vergleichbar), `@simplewebauthn/server` und `/browser`, `otplib`, `rate-limiter-flexible`. Den Session-Store in Mongo mit TTL-Index selbst implementieren oder eine gepflegte Library nutzen.
 - **Middleware:** `requireAuth` und `requireRole` setzen den Auth-Kontext (`userId`, `roles`), aus dem die Repositories den `ownerId` beziehen.
 - Audit-Log für alle Auth-Ereignisse.
-- E-Mail-Versand für System-Mails (Einladung, Reset) über eine **systemweite** SMTP-Config per Env, getrennt von der User-SMTP in M6.
+- E-Mail-Versand für System-Mails (Einladung, Reset) über `SYSTEM_SMTP_*` aus der Server-Config (A.8), getrennt von der User-SMTP in M6.
 
 **Akzeptanz:** Negativtests für falsches Passwort, MFA-Bypass-Versuche, Session-Fixation, CSRF ohne Token, Rate-Limit, User-Enumeration (gleiche Antwort für existierende und nicht existierende Mail), abgelaufene und wiederverwendete Tokens sowie den Zugriff eines Admins auf fremde Geschäftsdaten (muss 404/403 liefern).
 
@@ -322,7 +371,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 - Der **Auftrags- bzw. Rechnungseditor** wird neu gestaltet, als eigene Seite statt Modal-Dialog: links das Formular, rechts eine Live-Vorschau des PDFs (auf Mobilgeräten umschaltbar). Funktional muss er alles können, was der alte Auftragsdialog konnte (Positionen aus Artikeln oder frei, Positions- und Gesamtrabatt, Flex-Preise, Live-Summe), dazu „Gutschein einlösen“ mit Code-Eingabe bzw. Scan des QR-Codes per Kamera (Restguthaben direkt sichtbar). Neu sind Leistungsdatum, Steuersatz pro Position, Tastaturbedienung (Enter = neue Position, Positionen per Drag & Drop sortieren), automatisches Speichern als Entwurf und „Rechnung ausstellen“ mit einem Bestätigungsschritt, der die Pflichtangaben prüft.
 - **Gutscheine:** eigener Bereich mit Liste, Verkauf, externer Erfassung, Detail mit Einlösungshistorie und Gutschein-PDF.
 - Rechnungsansicht: Liste mit Status-Chips, Zahlungen erfassen, Storno, „PDF herunterladen“ (die lokale Ordnerablage folgt in M5).
-- **Einstellungen:** Firmenprofil (Name, Adresse, Telefon, E-Mail, Web, Steuernummer, USt-IdNr., IBAN, BIC, Bank, Logo-Upload als SVG oder PNG, serverseitig validiert und SVG sanitisiert), Steuermodus, Zahlungsziel, Nummernformate, Textvorlagen mit Platzhalter-Hilfe, Profil, Sicherheit (MFA, Sessions).
+- **Einstellungen:** alle Gruppen aus A.8 (Gruppen für spätere Meilensteine als „kommt bald“ ausgegraut), insbesondere Firmenprofil (Name, Adresse, Telefon, E-Mail, Web, Steuernummer, USt-IdNr., IBAN, BIC, Bank, Logo-Upload als SVG oder PNG, serverseitig validiert und SVG sanitisiert), Steuermodus, Zahlungsziel, Nummernformate, Textvorlagen mit Platzhalter-Hilfe, Profil, Sicherheit (MFA, Sessions).
 - **PWA/Offline:** App-Shell offline verfügbar. Geschäftsdaten sind **online-first** und werden nicht dauerhaft im Browser gespeichert (Datenschutz bei geteilten PCs). Offline zeigt die App einen klaren Hinweis.
 - Barrierefreiheit, Responsiveness, Performance-Budget und Onboarding nach A.7. axe-Prüfungen laufen in jedem E2E-Test mit.
 
@@ -420,7 +469,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - **Kurzlebige Access Tokens** (5–15 min), signiert mit ES256 oder EdDSA, mit JWKS-Rotation. **Refresh-Token-Rotation** mit Erkennung von Wiederverwendung: wird ein altes Refresh Token erneut benutzt, widerruft der Server die ganze Token-Familie. Absolute Lebensdauer begrenzen (z. B. 30 Tage).
   - **`state` bzw. PKCE gegen CSRF**, `iss`-Parameter in der Authorization Response (RFC 9207) gegen Mix-up-Angriffe.
   - DPoP (RFC 9449) optional unterstützen, wenn Clients es anbieten.
-- **Scopes** (fein und verständlich benannt): `customers:read`, `customers:write`, `articles:read`, `articles:write`, `orders:read`, `orders:write`, `invoices:read`, `invoices:issue`, `invoices:send`, `payments:write`, `reports:read`, `offline_access`. Default ist nur lesend.
+- **Scopes** (fein und verständlich benannt): `customers:read`, `customers:write`, `articles:read`, `articles:write`, `orders:read`, `orders:write`, `invoices:read`, `invoices:issue`, `invoices:send`, `payments:write`, `reports:read`, `settings:read`, `settings:write`, `offline_access`. Default ist nur lesend.
 - **Consent-Screen:** Clientname, Herkunft (Domain der Redirect-URI bzw. Metadata-URL), Hinweis bei unbekannten oder unverifizierten Clients, angeforderte Scopes in Klartext, einzelne Scopes abwählbar. Einwilligung pro Client und Scope-Set speichern.
 - **„Verbundene Apps“** in den Einstellungen: alle Clients mit Scopes, letzter Nutzung und „Zugriff widerrufen“ (widerruft alle Tokens sofort).
 - Einträge im Audit-Log (Consent, Token-Ausgabe pro Client, Widerruf, Wiederverwendung eines Refresh Tokens).
@@ -447,6 +496,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - Rechnungen: `issue_invoice`, `list_invoices`, `get_invoice`, `get_overdue_invoices`, `cancel_invoice`, `record_payment`, `send_invoice_mail`, `get_invoice_pdf` (liefert das PDF als eingebettete Resource bzw. Base64-Blob, im Speicher erzeugt). **Hinweis an das Modell:** Die Datei wird nicht auf dem Server gespeichert; der User speichert sie beim nächsten Öffnen der App (Banner aus M5).
   - Gutscheine: `list_vouchers`, `get_voucher`, `lookup_voucher`, `create_external_voucher`, `sell_voucher`, `redeem_voucher` (auf eine Rechnung), `get_voucher_liability`.
   - Ausgaben (aus M10d, sobald vorhanden): `list_expenses`, `create_expense`, `update_expense`, `get_eur_report`, `get_small_business_status`.
+  - Einstellungen: `get_settings`, `update_settings` (Einschränkungen laut A.8).
   - Reports: `get_revenue_report` (Jahr bzw. Zeitraum, gruppiert nach Monat), `get_dashboard_kpis`, `get_tax_report`.
   - Neu aus M10, sobald vorhanden: Angebote, Mahnungen, wiederkehrende Rechnungen.
   - Datensicherung: `export_my_data` (JSON-Export der eigenen Daten als Resource).
@@ -555,7 +605,8 @@ Deine Aufgabe ist ausschließlich Meilenstein <Mx>:
 <Abschnitt Mx hier einfügen>
 
 Arbeite die Aufgaben vollständig ab und halte die Definition of Done (A.6) und bei
-UI-Arbeit die UI/UX-Leitlinien (A.7) ein. Die fachliche Grundlage ist ausschließlich
+UI-Arbeit die UI/UX-Leitlinien (A.7) ein. Konfiguration nur nach A.8:
+User-bezogenes gehört in die User-Settings, nie in die .env. Die fachliche Grundlage ist ausschließlich
 A.2; es gibt kein Altsystem zum Nachschauen.
 Recherchiere aktuelle Versionen und Spezifikationen, bevor du Abhängigkeiten
 hinzufügst. Frag mich, wenn eine fachliche Entscheidung offen ist. Aktualisiere
