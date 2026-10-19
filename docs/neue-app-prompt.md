@@ -12,7 +12,7 @@
 M0 ─┬─► M1 ─► M2 ─► M3 ─┬─► M4 ─► M5 ─┬─► M6
     │                   │             ├─► M7
     └─► M0b ────────────┘             │
-                        └─► M8 ───────┴─► M9 ─► M10a/b/c ─► M11 (optional) ─► M12
+                        └─► M8 ───────┴─► M9 ─► M10a/b/c/d ─► M11 (optional) ─► M12
 ```
 (M0b, also Design-System und UX, läuft nach M0 parallel zu M1–M3 und muss vor M4 fertig sein. M8 kann nach M3 parallel zu M4/M5 laufen. M6 und M7 können parallel laufen.)
 
@@ -45,18 +45,19 @@ Dieser Abschnitt beschreibt **abschließend**, welche Funktionen EasyBill mindes
 **Stammdaten**
 - **Kunden:** Vorname, Nachname, E-Mail (optional), Straße, Hausnummer, PLZ, Ort. Funktionen: anlegen, bearbeiten, löschen (nur ohne Rechnungen, sonst archivieren), Suche über Name und Ort mit Pagination.
   - **Excel-Import (XLSX):** erstes Tabellenblatt, Kopfzeile mit den Spalten `Vorname`, `Nachname`, `Straße`, `HausNr`, `PLZ`, `Ort`, `Mail` (optional). Jede Zeile wird ein neuer Kunde. Fehlerhafte Zeilen werden übersprungen und im Ergebnis aufgelistet.
-- **Artikel (Leistungen/Produkte):** Bezeichnung, Artikelnummer (eindeutig pro User), Einheit (`HOUR` = Stunde, `PIECE` = Stück), Preis, `isFlexPrice` (Preis wird pro Auftrag frei eingegeben), `isNegativePosition` (Position wird abgezogen, z. B. Gutschrift oder Anzahlung), Zusatzinformation (optional). Funktionen: anlegen, bearbeiten, löschen, alle löschen (mit Bestätigung), Suche, Filter nach Einheit und Negativposition, Lookup per Artikelnummer.
-  - **Excel-Import (XLSX):** erstes Tabellenblatt mit den Spalten `Artikelbezeichnung`, `Artikelnummer`, `Preis`. Einheit ist Stück, `isFlexPrice` und `isNegativePosition` sind `false`. Gibt es die Artikelnummer schon, wird der Artikel aktualisiert, sonst neu angelegt.
+- **Artikel (Leistungen/Produkte):** Bezeichnung, Artikelnummer (eindeutig pro User), Einheit (`HOUR` = Stunde, `PIECE` = Stück), Preis, `isFlexPrice` (Preis wird pro Auftrag frei eingegeben), Zusatzinformation (optional). Funktionen: anlegen, bearbeiten, löschen, alle löschen (mit Bestätigung), Suche, Filter nach Einheit, Lookup per Artikelnummer.
+  - In der alten App gab es Artikel mit `isNegativePosition`. **Fachlich waren das immer eingelöste Gutscheine.** In EasyBill gibt es keine Negativpositionen mehr. Sie werden durch die Gutscheinverwaltung ersetzt (siehe „Gutscheine“).
+  - **Excel-Import (XLSX):** erstes Tabellenblatt mit den Spalten `Artikelbezeichnung`, `Artikelnummer`, `Preis`. Einheit ist Stück, `isFlexPrice` ist `false`. Gibt es die Artikelnummer schon, wird der Artikel aktualisiert, sonst neu angelegt.
 
 **Aufträge und Rechnungen**
 - **Auftrag:** Kunde (Name wird für Listen denormalisiert), Positionen, optionaler Gesamtrabatt in %, Erstellungsdatum, Notizen. Funktionen: anlegen, bearbeiten, löschen (nur solange keine Rechnung ausgestellt ist), Suche über Kundenname und Nummer. Filter (kombinierbar): Kunde, Status, Erstellungszeitraum (tagesgenau, inklusive), „nur überfällige“.
-- **Position:** Bezeichnung, Menge (Dezimalzahl erlaubt, z. B. 1,5 Stunden; max. 3 Nachkommastellen), Einzelpreis, Einheit, optionaler Positionsrabatt in %, `isFlexPrice`, `isNegativePosition`. Positionen werden aus einem Artikel übernommen (Werte vorbelegt, Flex-Preis editierbar) oder frei erfasst.
+- **Position:** Bezeichnung, Menge (Dezimalzahl erlaubt, z. B. 1,5 Stunden; max. 3 Nachkommastellen), Einzelpreis, Einheit, optionaler Positionsrabatt in %, `isFlexPrice`. Positionen werden aus einem Artikel übernommen (Werte vorbelegt, Flex-Preis editierbar) oder frei erfasst.
 - **Status:** Der Lebenszyklus `Neu → Rechnung erstellt → per Mail verschickt → bezahlt` bleibt fachlich erhalten. Im neuen Modell wird er auf Auftrag und Rechnung verteilt (M1): ausgestellt, versendet, teilweise oder vollständig bezahlt, storniert, überfällig.
 - **Fälligkeit:** Rechnungsdatum + Zahlungsziel (bisher fest 14 Tage, künftig in den Settings einstellbar; Default 14). „Überfällig“ heißt: Fälligkeitsdatum ist überschritten und die Rechnung ist nicht vollständig bezahlt.
 - **Bezahlt-Datum:** Wird gesetzt, wenn die Rechnung vollständig bezahlt ist. Es ist maßgeblich für Umsatz- und Steuerauswertungen.
 
 **Preisberechnung** (neu implementieren in Integer-Cent, kaufmännisch runden, half-up)
-- Positionsbetrag = `Einzelpreis × Menge × (100 − Positionsrabatt) / 100`; bei `isNegativePosition` negativ. Ohne Rabatt entfällt der Faktor.
+- Positionsbetrag = `Einzelpreis × Menge × (100 − Positionsrabatt) / 100`. Ohne Rabatt entfällt der Faktor.
 - Zwischensumme = Summe aller Positionsbeträge.
 - Gesamtbetrag = `Zwischensumme × (100 − Gesamtrabatt) / 100`; ohne Gesamtrabatt gleich der Zwischensumme.
 - Rundung auf Cent pro Positionsbetrag und einmal beim Gesamtbetrag. Steuern kommen im Modus `STANDARD` hinzu (M1).
@@ -66,8 +67,11 @@ Dieser Abschnitt beschreibt **abschließend**, welche Funktionen EasyBill mindes
   |---|---|---|
   | einfach | 3 × 10,00 € | 30,00 € |
   | Positionsrabatt | 2 × 50,00 €, 10 % | 90,00 € |
-  | Negativposition | 1 × 20,00 €, negativ | −20,00 € |
-  | Gesamtrabatt | Positionen 30,00 + 90,00 − 20,00, Gesamtrabatt 5 % | Zwischensumme 100,00 €, Gesamt 95,00 € |
+  | Gesamtrabatt | Positionen 30,00 + 90,00, Gesamtrabatt 5 % | Zwischensumme 120,00 €, Gesamt 114,00 € |
+  | Gutschein | wie oben, Gutschein 20,00 € eingelöst | Gesamt 114,00 €, abzgl. Gutschein 20,00 €, zu zahlen 94,00 € |
+  | Gutschein > Betrag | Gesamt 15,00 €, Gutschein 20,00 € | zu zahlen 0,00 €, Restguthaben 5,00 € |
+
+  Hinweis zur Abweichung vom Altsystem: Dort zog der Gesamtrabatt auch den Gutschein mit ab (Fall 4 ergab dort 95,00 € statt 94,00 €). Das war fachlich falsch. Ein Gutschein wird **nie** rabattiert.
   | Rundung | 3 × 33,33 €, 10 % Positionsrabatt | 89,99 € (aus 89,991) |
   | Stunden | 1,5 h × 80,00 € | 120,00 € |
 
@@ -84,8 +88,17 @@ Dieser Abschnitt beschreibt **abschließend**, welche Funktionen EasyBill mindes
 - Rechnung als PDF-Anhang an die E-Mail-Adresse des Kunden. Betreff und Text kommen aus der Vorlage. Danach gilt die Rechnung als versendet. Der Button ist deaktiviert, wenn der Kunde keine E-Mail-Adresse hat.
 
 **Auswertungen**
+- **Begriffe:** *Umsatz* ist der Rechnungsbetrag erbrachter Leistungen, auch wenn er per Gutschein bezahlt wurde. *Einnahme* (für die EÜR) ist der tatsächliche Geldzufluss: Überweisung, bar, online und Gutscheinverkäufe. Gutschein-Einlösungen sind **keine** Einnahme, weil das Geld schon beim Verkauf geflossen ist.
 - **Dashboard:** Gesamtumsatz, Umsatz im laufenden Monat (nach Bezahlt-Datum), Anzahl neuer Aufträge, Anzahl offener (ausgestellter, aber unbezahlter) Rechnungen, Umsatz der letzten 6 Monate pro Monat als Diagramm, Top-5-Kunden nach Umsatz, Verteilung nach Status mit Anzahl und Anteil in %.
-- **Steuerreport (EÜR-Einnahmen):** Jahr wählbar (Jahre mit Einnahmen sowie das aktuelle Jahr ±5, +10). Nur bezahlte Rechnungen, gruppiert nach Monat des Bezahlt-Datums, mit Monatssummen und Jahressumme. Export als CSV und PDF.
+- **Steuerreport (EÜR-Einnahmen):** Jahr wählbar (Jahre mit Einnahmen sowie das aktuelle Jahr ±5, +10). Alle Einnahmen (siehe Begriffe) gruppiert nach Monat des Zahlungseingangs, mit Monatssummen und Jahressumme. Export als CSV und PDF. Mit der Ausgabenerfassung (M10d) wird daraus eine vollständige EÜR.
+
+**Gutscheine (Wertgutscheine, steuerlich Mehrzweck-Gutscheine)**
+- **Gutschein-Stammdaten:** Code, Ausgangswert, Restguthaben, Ausgabedatum, gültig bis (Default: Ende des dritten Jahres nach Ausgabe, entsprechend der regelmäßigen Verjährung; einstellbar), optional Käufer (Kunde oder Freitext), Herkunft `IN_APP` oder `EXTERNAL`, Status `ACTIVE | REDEEMED | EXPIRED | CANCELLED`, Historie aller Einlösungen.
+- **Verkauf in der App:** eigener Beleg „Gutschein“ mit eigenem Nummernkreis. Er wird bezahlt wie eine Rechnung und zählt als Einnahme. Optional gibt es ein gestaltetes Gutschein-PDF zum Verschenken (Code, Wert, Gültigkeit, QR-Code mit dem Code), lokal abgelegt wie Rechnungen.
+- **Externe Gutscheine:** werden vorab erfasst (einzeln oder per CSV) oder direkt bei der Einlösung mit Code und Wert angelegt. Einstellung pro User: Wurden die Verkaufserlöse externer Gutscheine schon anderswo als Einnahme erfasst? (Default: ja.)
+- **Einlösen auf der Rechnung:** per Code (Suche, Prüfung von Gültigkeit und Restguthaben), auch mehrere Gutscheine und Teilbeträge. Der Gutschein erscheint **unter** dem Gesamtbetrag als „abzgl. Gutschein Nr. … −20,00 €“, danach folgt „Zu zahlen“. Intern ist er eine Zahlung vom Typ `VOUCHER`. Bei Storno der Rechnung wird das Guthaben zurückgebucht.
+- **Umsatzsteuer** (Modus `STANDARD`): Beim Verkauf eines Mehrzweck-Gutscheins fällt keine USt an. Die Rechnung weist die USt auf den vollen Leistungsbetrag aus, und der Gutschein mindert nur den Zahlbetrag. Die Rechtslage (§3 Abs. 13–15 UStG) vor Umsetzung prüfen und im ADR festhalten.
+- **Übersicht:** aktive Gutscheine, offene Gutscheinverbindlichkeit (Summe aller Restguthaben), demnächst ablaufende Gutscheine.
 
 **Datensicherung und Agent-Zugriff**
 - JSON-Export der eigenen Kunden, Artikel und Aufträge.
@@ -243,7 +256,9 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - `Position`: wie in A.2, plus `taxRate` und `unit`. Beträge in Cent.
   - `Order` (Auftrag/Entwurf): wie in A.2, plus `serviceDate` oder `servicePeriod` (Leistungsdatum ist Pflichtangabe nach §14 UStG), `notes`, `legacyOrderNumber?`.
   - `Invoice`: unveränderlicher Snapshot nach A.4.2, mit `invoiceNumber`, `type` (`INVOICE | CANCELLATION | CREDIT_NOTE`), `refInvoiceId?`, `issuedAt`, `dueDate`, `pdfSha256`, `layoutVersion`, `localCopy: {confirmedAt?}`, `status` (`ISSUED | SENT | PARTIALLY_PAID | PAID | CANCELLED | OVERDUE` (abgeleitet)).
-  - `Payment` (Zahlungseingang), `Counter` (Nummernkreise), `UserSettings` (Firmenprofil, Steuermodus, Texte, Zahlungsziel, Nummernformat, Dateinamensmuster, SMTP), `AuditEvent`.
+  - `Payment` (Zahlungseingang, `method`: `BANK | CASH | ONLINE | VOUCHER | OTHER`, bei `VOUCHER` mit `voucherId`), `Voucher` und `VoucherSale` (siehe A.2 Gutscheine), `Counter` (Nummernkreise), `UserSettings` (Firmenprofil, Steuermodus, Texte, Zahlungsziel, Nummernformat, Dateinamensmuster, SMTP, GiroCode an/aus, Gutschein-Einstellungen), `AuditEvent`.
+  - Die `Invoice` speichert `totalCents` (Rechnungsbetrag), die Gutschein-Einlösungen und `amountDueCents` (zu zahlen). Ein Gutschein wird nie rabattiert und nie als Position geführt.
+- **Gutschein-Codes:** kryptografisch zufällig (`crypto.randomInt`), mindestens 10 Zeichen aus einem eindeutig lesbaren Alphabet (Crockford Base32, ohne 0/O/1/I), gruppiert angezeigt (`XXXX-XXXX-XX`), eindeutig pro User. Restguthaben werden atomar verbucht (`findOneAndUpdate` mit Bedingung `remaining >= betrag`), damit kein Gutschein doppelt eingelöst werden kann.
 - **Steuermodus** in den Settings:
   - `SMALL_BUSINESS` (Kleinunternehmer nach §19 UStG, Default): keine USt; der Hinweistext wird automatisch auf die Rechnung gedruckt.
   - `STANDARD`: USt pro Position (19 %, 7 %, 0 %), Ausweis nach Steuersätzen getrennt, Steuernummer bzw. USt-IdNr. Pflicht.
@@ -253,7 +268,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 - Ein `BaseRepository<T>`, das `ownerId` **zwingend** im Konstruktor bzw. Kontext erwartet und an jede Operation hängt. Eine direkte Collection-Nutzung außerhalb der Repositories wird per Lint-Regel verboten.
 - Feldverschlüsselungs-Helper (A.5) mit Tests.
 
-**Akzeptanz:** Unit-Tests für Berechnung (inkl. Rabatt, Negativpositionen, beide Steuermodi), Nummernkreise (parallele Vergabe ohne Duplikate oder Lücken) und Owner-Trennung im Repository.
+**Akzeptanz:** Unit-Tests für Berechnung (inkl. Rabatt, Gutscheine, beide Steuermodi), parallele Gutschein-Einlösungen (kein Überziehen des Restguthabens), Nummernkreise (parallele Vergabe ohne Duplikate oder Lücken) und Owner-Trennung im Repository.
 
 ---
 
@@ -283,11 +298,12 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 **Aufgaben**
 - **Service-Layer** (`apps/api/src/domain/*`), den die REST-Router und später der MCP-Server gemeinsam nutzen.
 - **Kunden:** CRUD, Suche (Name, Firma, Ort, Nummer), Pagination, XLSX-Import (Spalten laut A.2; `xlsx` durch eine gepflegte Library wie `exceljs` ersetzen).
-- **Artikel:** CRUD, Suche, Filter (`unit`, `isNegativePosition`), Lookup nach Artikelnummer, „alle löschen“ (mit Bestätigung), XLSX-Import.
+- **Artikel:** CRUD, Suche, Filter (`unit`), Lookup nach Artikelnummer, „alle löschen“ (mit Bestätigung), XLSX-Import.
 - **Aufträge:** CRUD, Suche, Filter laut A.2 (`customerNumber`, `state`, `createdFrom`/`createdTo`, `onlyOverdue`), dazu eine Statusmaschine mit erlaubten Übergängen.
 - **Rechnung ausstellen:** `POST /api/orders/:id/issue` validiert die Pflichtangaben (§14 UStG: vollständige Adressen, Steuernummer bzw. USt-IdNr., Leistungsdatum, fortlaufende Nummer, Steuerausweis oder §19-Hinweis). Der Endpunkt erzeugt den Snapshot und die Nummer, rendert das PDF serverseitig **nur im Speicher**, um den SHA-256 zu bilden, speichert die Rechnung und liefert sie zurück.
 - **Rechnungen:** lesen, filtern, `GET /api/invoices/:id/pdf` (PDF aus dem Snapshot im Speicher erzeugen und streamen; `Cache-Control: no-store`), Storno (erzeugt eine Stornorechnung mit eigener Nummer und Referenz, die Originalrechnung wird `CANCELLED`), `POST /api/invoices/:id/local-copy` (bestätigt, dass die lokale Ablage erfolgt ist, mit Hash-Abgleich).
 - **Zahlungen:** Zahlung erfassen (Teilzahlungen); der Status wird automatisch abgeleitet. Bei vollständiger Zahlung `paidAt` setzen. „Bezahlt“ aus A.2 entspricht dem neuen `PAID`.
+- **Gutscheine:** CRUD für externe Gutscheine, CSV-Import, Gutschein verkaufen (Beleg plus Zahlung), Code prüfen (`GET /api/vouchers/lookup?code=`, mit Rate-Limit pro User gegen Durchprobieren), auf einer Rechnung einlösen bzw. die Einlösung zurücknehmen (nur solange die Rechnung nicht vollständig bezahlt ist), Liste, Ablauf-Job (setzt abgelaufene Gutscheine auf `EXPIRED`), Report zur Gutscheinverbindlichkeit.
 - **Reports:** Dashboard-KPIs, Umsatz pro Monat, Top-Kunden, EÜR-Einnahmenliste pro Jahr (nach Zahlungsdatum, Zuflussprinzip), überfällige Rechnungen.
 - Eine OpenAPI-Spezifikation wird aus den zod-Schemas generiert (z. B. `zod-openapi`) und unter `/api/docs` nur in der Entwicklung ausgeliefert.
 
@@ -302,8 +318,9 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 **Aufgaben**
 - Login-, MFA-, Setup-, Einladungs- und Reset-Seiten. Auth-State per Signal aus `GET /api/me`. Route-Guards. HTTP-Interceptor für CSRF-Token und 401-Handling (zurück zum Login).
 - Das UI wird **vollständig nach dem Design-System und den Flows aus M0b** gebaut (`docs/design/`, `packages/ui`). Vom alten UI wird nichts übernommen. Angular-Konventionen: Signals (`resource()`/`httpResource()`, `computed()`, `linkedSignal()`), `inject()`, Signal-Forms bzw. typisierte Reactive Forms, `OnPush`, neue Control-Flow-Syntax, lazy geladene Routen.
-- Bereiche: **Dashboard (Start), Aufträge, Rechnungen (neu), Angebote (Platzhalter für M10a), Kunden, Artikel, Steuerreport, Einstellungen (neu), Hilfe**. Navigation, Gruppierung und Reihenfolge nach der Informationsarchitektur aus M0b.
-- Der **Auftrags- bzw. Rechnungseditor** wird neu gestaltet, als eigene Seite statt Modal-Dialog: links das Formular, rechts eine Live-Vorschau des PDFs (auf Mobilgeräten umschaltbar). Funktional muss er alles können, was der alte Auftragsdialog konnte (Positionen aus Artikeln oder frei, Positions- und Gesamtrabatt, Negativpositionen, Flex-Preise, Live-Summe). Neu sind Leistungsdatum, Steuersatz pro Position, Tastaturbedienung (Enter = neue Position, Positionen per Drag & Drop sortieren), automatisches Speichern als Entwurf und „Rechnung ausstellen“ mit einem Bestätigungsschritt, der die Pflichtangaben prüft.
+- Bereiche: **Dashboard (Start), Aufträge, Rechnungen (neu), Gutscheine (neu), Angebote (Platzhalter für M10a), Kunden, Artikel, Steuerreport, Einstellungen (neu), Hilfe**. Navigation, Gruppierung und Reihenfolge nach der Informationsarchitektur aus M0b.
+- Der **Auftrags- bzw. Rechnungseditor** wird neu gestaltet, als eigene Seite statt Modal-Dialog: links das Formular, rechts eine Live-Vorschau des PDFs (auf Mobilgeräten umschaltbar). Funktional muss er alles können, was der alte Auftragsdialog konnte (Positionen aus Artikeln oder frei, Positions- und Gesamtrabatt, Flex-Preise, Live-Summe), dazu „Gutschein einlösen“ mit Code-Eingabe bzw. Scan des QR-Codes per Kamera (Restguthaben direkt sichtbar). Neu sind Leistungsdatum, Steuersatz pro Position, Tastaturbedienung (Enter = neue Position, Positionen per Drag & Drop sortieren), automatisches Speichern als Entwurf und „Rechnung ausstellen“ mit einem Bestätigungsschritt, der die Pflichtangaben prüft.
+- **Gutscheine:** eigener Bereich mit Liste, Verkauf, externer Erfassung, Detail mit Einlösungshistorie und Gutschein-PDF.
 - Rechnungsansicht: Liste mit Status-Chips, Zahlungen erfassen, Storno, „PDF herunterladen“ (die lokale Ordnerablage folgt in M5).
 - **Einstellungen:** Firmenprofil (Name, Adresse, Telefon, E-Mail, Web, Steuernummer, USt-IdNr., IBAN, BIC, Bank, Logo-Upload als SVG oder PNG, serverseitig validiert und SVG sanitisiert), Steuermodus, Zahlungsziel, Nummernformate, Textvorlagen mit Platzhalter-Hilfe, Profil, Sicherheit (MFA, Sessions).
 - **PWA/Offline:** App-Shell offline verfügbar. Geschäftsdaten sind **online-first** und werden nicht dauerhaft im Browser gespeichert (Datenschutz bei geteilten PCs). Offline zeigt die App einen klaren Hinweis.
@@ -318,7 +335,13 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 **Ziel:** Rechnungen landen als PDF im vom User gewählten Ordner auf seinem PC; der Server speichert keine Dateien.
 
 **Aufgaben**
-- `packages/shared/pdf`: Dokumentdefinition aus dem Invoice-Snapshot. **Neues Rechnungsdesign** aus M0b (DIN 5008, modern und gut lesbar, Akzentfarbe und Logo aus dem Firmenprofil), mit allen Inhalten aus A.2, ergänzt um die Pflichtangaben (Leistungsdatum, Steuerausweis bzw. §19-Hinweis, Steuernummer, USt-IdNr., Storno-Referenz). Feste Fonts einbetten. Deterministisch: identischer Snapshot ergibt identische Bytes. Läuft im Browser und in Node mit derselben Definition.
+- `packages/shared/pdf`: Dokumentdefinition aus dem Invoice-Snapshot. **Neues Rechnungsdesign** aus M0b (DIN 5008, modern und gut lesbar, Akzentfarbe und Logo aus dem Firmenprofil), mit allen Inhalten aus A.2, ergänzt um die Pflichtangaben (Leistungsdatum, Steuerausweis bzw. §19-Hinweis, Steuernummer, USt-IdNr., Storno-Referenz). Gutschein-Einlösungen stehen unter dem Gesamtbetrag, danach „Zu zahlen“. Feste Fonts einbetten. Deterministisch: identischer Snapshot ergibt identische Bytes. Läuft im Browser und in Node mit derselben Definition.
+- **GiroCode (EPC-QR-Code)**, steuerbar über einen Schalter in den Settings (Default: an, wenn eine IBAN hinterlegt ist):
+  - Format nach EPC069-12 (Version 002, UTF-8, `SCT`), mit Empfängername (max. 70 Zeichen), IBAN, BIC (optional), Betrag = **zu zahlender Betrag** und Verwendungszweck = Rechnungsnummer.
+  - Druckgröße mindestens 2 × 2 cm, Fehlerkorrekturstufe M, mit der Beschriftung „Mit Banking-App scannen“.
+  - Kein QR-Code, wenn der Betrag 0 ist (dann steht „Bereits vollständig durch Gutschein beglichen“ auf der Rechnung) oder wenn keine IBAN hinterlegt ist.
+  - Unit-Tests gegen den Standard (Feldreihenfolge, Längen, Betragsformat `EUR123.45`), außerdem ein Test mit einem QR-Decoder.
+- **Gutschein-PDF** (A.2) mit demselben Renderer und derselben lokalen Ablage (Unterordner `Gutscheine/`).
 - **Ordnerwahl in den Einstellungen:** `window.showDirectoryPicker({mode: 'readwrite'})`. Den `FileSystemDirectoryHandle` in IndexedDB speichern (er ist gerätegebunden, das Gerät per zufälliger `deviceId` kennzeichnen). Ordnernamen anzeigen und Schreibrecht prüfen. Fehlt nach einem Neustart die Berechtigung, holt die App sie per `requestPermission()` erneut ein, ausgelöst durch einen Klick.
 - **Dateistruktur** über ein Muster in den Settings, z. B. `{YYYY}/{invoiceNumber}_{customerLastName}.pdf`. Dateinamen sanitisieren (keine Pfadtrenner, keine reservierten Windows-Namen, max. Länge). Existierende Dateien nie stillschweigend überschreiben.
 - **Ablauf beim Ausstellen:** Die API liefert den Snapshot, der Browser rendert das PDF, prüft den SHA-256 gegen den Server-Hash, schreibt die Datei in den Ordner und meldet `POST /local-copy`.
@@ -365,12 +388,14 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   3. Optionen wählen.
   4. Import ausführen.
   5. Bericht anzeigen und herunterladen.
-- **Mapping:** Die alten IDs als `legacyId` bzw. `legacyOrderNumber` speichern. Euro in Cent umrechnen (exakt runden). Den `total` aus der Datei als festen Rechnungsbetrag übernehmen, nicht neu berechnen; Abweichungen zur Neuberechnung nur im Bericht ausweisen. Alte Status übersetzen: `CLOSED` wird zur ausgestellten und bezahlten Rechnung mit `paidAt = closedDate`; `SENT_MAIL` wird zu `SENT`; `OPEN` und `IN_PROGRESS` bleiben Aufträge. Steuermodus `SMALL_BUSINESS`.
+- **Mapping:** Die alten IDs als `legacyId` bzw. `legacyOrderNumber` speichern. Euro in Cent umrechnen (exakt runden). Der `total` aus der Datei bleibt der **zu zahlende bzw. bezahlte Betrag**; Abweichungen zur Neuberechnung nur im Bericht ausweisen.
+- **Negativpositionen = eingelöste Gutscheine:** Jede Position mit `isNegativePosition: true` wird zu einem externen Gutschein (`EXTERNAL`, Code `IMP-<orderNumber>-<n>`, Status `REDEEMED`) plus einer Einlösung auf der Rechnung. Der Einlösebetrag ist der Positionsbetrag × Gesamtrabatt-Faktor, weil das Altsystem den Gutschein mitrabattiert hat. Der Rechnungsbetrag ist `total` + Einlösebetrag. So bleiben Zahlbetrag und Einnahmen exakt gleich, und der Umsatz wird korrekt ohne Gutscheinabzug ausgewiesen. Der Bericht zeigt pro Jahr die Umsatzveränderung durch diese Umdeutung. Negativpositionen aus dem Artikel-Backup werden nicht als Artikel importiert, sondern im Bericht aufgelistet.
+- **Status:** Alte Status übersetzen: `CLOSED` wird zur ausgestellten und bezahlten Rechnung mit `paidAt = closedDate`; `SENT_MAIL` wird zu `SENT`; `OPEN` und `IN_PROGRESS` bleiben Aufträge. Steuermodus `SMALL_BUSINESS`.
 - **Alte Rechnungen:** Die alte `orderNumber` war die Rechnungsnummer. Importierte Rechnungen behalten diese Nummer (Kennzeichen `imported: true`, Format „wie importiert“). Der neue Nummernkreis startet **oberhalb der höchsten importierten Nummer**, damit keine Duplikate entstehen; das ist im Wizard einstellbar. Die alten PDFs liegen bereits beim User (`<FILE_SAVE_LOCATION>/<orderNumber>/Rechnung_<surname>_<orderNumber>.pdf`) und werden **nicht** neu erzeugt. Optional kann der User seinen alten Rechnungsordner wählen; die App ordnet dann die vorhandenen Dateien zu und speichert deren SHA-256.
 - **Idempotenz:** Ein erneuter Import derselben Datei erzeugt keine Duplikate (Upsert über `ownerId + legacyId`). Ein Abbruch ist sicher; wenn kein Replica Set vorhanden ist, wird pro Batch gearbeitet und ein Fortsetzungs-Marker gespeichert.
 - Einträge im Audit-Log.
 
-**Akzeptanz:** Tests mit generierten Backup-Fixtures im obigen Format inkl. Randfällen (fehlende Felder, Datumsformate, Rundung, verwaiste Aufträge, doppelter Import). Die Summen vor und nach dem Import stimmen exakt überein.
+**Akzeptanz:** Tests mit generierten Backup-Fixtures im obigen Format inkl. Randfällen (fehlende Felder, Datumsformate, Rundung, verwaiste Aufträge, doppelter Import, Negativpositionen mit und ohne Gesamtrabatt). Die Summen vor und nach dem Import stimmen exakt überein.
 
 ---
 
@@ -417,9 +442,11 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - `Origin`-Header validieren (Schutz vor DNS-Rebinding).
 - **Tools** (die Namen sind verbindlich), jeweils mit zod-Input-Schema, `outputSchema`/`structuredContent` und Annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`):
   - Kunden: `list_customers`, `get_customer`, `create_customer`, `update_customer`, `delete_customer`, `get_customer_with_orders`.
-  - Artikel: `list_article_types` (Filter `unit`, `isNegativePosition`), `get_article_type`, `get_article_type_by_number`, `create_article_type`, `update_article_type`, `delete_article_type`, `clear_article_types`.
+  - Artikel: `list_article_types` (Filter `unit`), `get_article_type`, `get_article_type_by_number`, `create_article_type`, `update_article_type`, `delete_article_type`, `clear_article_types`.
   - Aufträge: `list_orders` (Filter laut A.2, plus `start`/`end` für Pagination), `get_order`, `create_order`, `update_order`, `delete_order`, `get_orders_by_customer`.
   - Rechnungen: `issue_invoice`, `list_invoices`, `get_invoice`, `get_overdue_invoices`, `cancel_invoice`, `record_payment`, `send_invoice_mail`, `get_invoice_pdf` (liefert das PDF als eingebettete Resource bzw. Base64-Blob, im Speicher erzeugt). **Hinweis an das Modell:** Die Datei wird nicht auf dem Server gespeichert; der User speichert sie beim nächsten Öffnen der App (Banner aus M5).
+  - Gutscheine: `list_vouchers`, `get_voucher`, `lookup_voucher`, `create_external_voucher`, `sell_voucher`, `redeem_voucher` (auf eine Rechnung), `get_voucher_liability`.
+  - Ausgaben (aus M10d, sobald vorhanden): `list_expenses`, `create_expense`, `update_expense`, `get_eur_report`, `get_small_business_status`.
   - Reports: `get_revenue_report` (Jahr bzw. Zeitraum, gruppiert nach Monat), `get_dashboard_kpis`, `get_tax_report`.
   - Neu aus M10, sobald vorhanden: Angebote, Mahnungen, wiederkehrende Rechnungen.
   - Datensicherung: `export_my_data` (JSON-Export der eigenen Daten als Resource).
@@ -444,13 +471,46 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 
 - **Mahnstufen** konfigurierbar (Zahlungserinnerung, 1. und 2. Mahnung) mit Fristen, Texten und optionalen Mahngebühren bzw. Verzugszinsen (Basiszinssatz konfigurierbar, nicht hart codiert). Mahnungen als PDF (lokal) und per Mail. Übersicht „Fällig zur Mahnung“, optional automatische Erinnerung per Mail.
 - **Zahlungen:** Teilzahlungen, Skonto, Abschreibung als uneinbringlich. Optional CSV-Import von Kontoauszügen (CAMT.053 oder CSV) mit Zuordnungsvorschlägen über Rechnungsnummer und Betrag.
-- **EPC-QR-Code** („GiroCode“) auf Rechnungen für SEPA-Überweisungen (abschaltbar).
+- Der GiroCode ist bereits in M5 umgesetzt. Hier wird er zusätzlich auf Mahnungen gedruckt, jeweils mit dem offenen Betrag.
+- **Bezahllink in der Rechnungsmail** (in den Settings aktivierbar):
+  - **Stripe** (automatischer Abgleich):
+    - Der User hinterlegt einen eigenen *Restricted API Key*, verschlüsselt gespeichert und nur mit den nötigen Rechten.
+    - Pro Rechnung erzeugt die App einen Checkout- bzw. Payment-Link über den zu zahlenden Betrag, mit Rechnungs-ID in den Metadaten. Der Link kommt in die Mail und optional als Link bzw. QR-Code aufs PDF.
+    - Der Webhook-Endpunkt ist pro User eindeutig. Er prüft die Signatur (`Stripe-Signature`, Toleranz gegen Replay) und verarbeitet idempotent über die Event-ID.
+    - Der gezahlte Betrag und die Rechnungs-ID werden gegen die DB geprüft. Danach entsteht automatisch eine Zahlung `ONLINE` (optional mit Gebühren), und der Status wird aktualisiert.
+    - Die App sieht oder verarbeitet nie Kartendaten (PCI DSS SAQ A).
+    - Der Link wird ungültig, wenn die Rechnung anderweitig bezahlt oder storniert wird.
+  - **PayPal**: einfacher PayPal.me-Link mit Betrag, ohne automatischen Abgleich. Optional die PayPal-Orders-API mit Webhook und Signaturprüfung, analog zu Stripe.
+  - Andere Anbieter (z. B. Mollie) über eine gemeinsame `PaymentProvider`-Schnittstelle vorbereiten.
+  - Tests: Webhook mit falscher Signatur, Replay, falschem Betrag, unbekannter Rechnung und doppeltem Event.
 
 ### M10c – Export, DSGVO & Komfort
 
 - **Steuerberater-Export:** CSV und **DATEV-Buchungsstapel** (Format vorher recherchieren und im ADR festhalten), EÜR-Report als PDF und CSV.
 - **DSGVO:** „Meine Daten exportieren“ (JSON plus CSV als ZIP) und Kontolöschung mit Sperrkonzept für aufbewahrungspflichtige Rechnungsdaten (A.5).
 - **Komfort:** globale Suche, Duplizieren von Aufträgen, Kundenhistorie (Umsatz, offene Posten), Dashboard-Erweiterungen (offene Forderungen, durchschnittliche Zahlungsdauer, Umsatz-Vorjahresvergleich).
+
+### M10d – Ausgaben, Belege & Kleinunternehmergrenze
+
+- **Ausgaben erfassen:** Datum, Lieferant, Beschreibung, Kategorie (an die Zeilen der Anlage EÜR angelehnt, z. B. Wareneinkauf, Fremdleistungen, Raumkosten, Fahrzeugkosten, Telefon/Internet, Software, Fortbildung, Bürobedarf; erweiterbar), Bruttobetrag, im Modus `STANDARD` Vorsteuer nach Steuersatz, Zahlungsdatum (maßgeblich für die EÜR), Zahlungsart, Notiz. Dazu wiederkehrende Ausgaben (z. B. monatliche Software-Abos).
+- **Anlagegüter:** Liegt eine Ausgabe über der GWG-Grenze (aktuell 800 € netto; konfigurierbar, vor Umsetzung prüfen), wird sie als Anlagegut mit Nutzungsdauer erfasst. Die lineare AfA wird pro Jahr berechnet und fließt in die EÜR.
+- **Belege lokal, wie Rechnungen:**
+  - Beleg als PDF oder Foto auswählen oder auf dem Handy direkt mit der Kamera aufnehmen (`<input type="file" accept="image/*,application/pdf" capture>`).
+  - Die Datei wird im Rechnungsordner unter `Belege/{YYYY}/{Datum}_{Lieferant}_{Betrag}.{ext}` gespeichert (File System Access API bzw. Download-Fallback).
+  - Der **Server speichert nur Metadaten und den SHA-256**, nie die Datei. Die Integritätsprüfung aus M5 gilt auch für Belege.
+- **Agent-Unterstützung:** Über MCP kann ein Agent Ausgaben anlegen, z. B. aus einer Rechnung, die er gelesen hat. Den Beleg legt der User beim nächsten Öffnen ab (Banner „X Ausgaben ohne Beleg“).
+- **Vollständige EÜR:**
+  - Einnahmen (A.2) minus Ausgaben und AfA, nach Kategorie und Monat, mit Jahresvergleich.
+  - Im Modus `STANDARD` zusätzlich vereinnahmte USt, Vorsteuer und Zahllast als Vorbereitung für die Umsatzsteuer-Voranmeldung (keine ELSTER-Übermittlung, nur eine Übersicht).
+  - Export als PDF und CSV; der DATEV-Export aus M10c enthält auch die Ausgaben.
+- **Kleinunternehmergrenze** (nur im Modus `SMALL_BUSINESS`):
+  - Die App prüft beide Grenzen aus §19 UStG: Gesamtumsatz im **Vorjahr ≤ 25.000 €** und im **laufenden Jahr ≤ 100.000 €** (Stand ab 2025; Grenzwerte konfigurierbar, Berechnungsbasis und Rechtslage vor Umsetzung prüfen und im ADR festhalten). Gutscheinverkäufe zählen nicht zum Umsatz, Gutschein-Einlösungen schon.
+  - Anzeige auf dem Dashboard: Fortschrittsbalken „Umsatz {Jahr}: 62.300 € von 100.000 €“ mit Prognose zum Jahresende auf Basis des bisherigen Verlaufs.
+  - Warnstufen: ab 80 % ein Hinweis; ab 95 % eine deutliche Warnung mit Erklärung und Link zur Hilfe.
+  - Würde eine neue Rechnung die 100.000 € überschreiten, blockiert ein Dialog vor dem Ausstellen: Ab diesem Umsatz gilt die Regelbesteuerung. Der Dialog bietet an, in den Modus `STANDARD` zu wechseln. Die Rechnung, mit der die Grenze überschritten wird, ist bereits mit USt auszustellen.
+  - Zum Jahreswechsel prüft die App die 25.000-€-Grenze des Vorjahres und weist darauf hin, falls die Kleinunternehmerregelung im neuen Jahr nicht mehr gilt.
+  - Jeder Wechsel des Steuermodus wird mit Stichtag im Audit-Log festgehalten. Rechnungen vor dem Stichtag bleiben unverändert.
+  - Kein Ersatz für Steuerberatung: Ein klarer Hinweis in der UI und in der Hilfe.
 
 ---
 
