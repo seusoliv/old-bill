@@ -2,18 +2,19 @@
 
 > **So verwendest du dieses Dokument**
 >
-> 1. Lege ein neues, leeres Repository an (z. B. `easy-bill`) und kopiere das alte Repo `old-bill` als Referenz nach `legacy/` hinein (nur lesen, wird nicht gebaut).
+> 1. Lege ein **neues, leeres Repository** an (z. B. `easy-bill`). Das alte Repo `old-bill` wird **nicht** übernommen. Es dient nur als fachliche Referenz: Jeder Agent klont es read-only nach `.reference/old-bill/`, und dieser Ordner steht in `.gitignore`, landet also nie im neuen Repo.
 > 2. Starte für **jeden Meilenstein eine eigene Claude-Code-Session** (eigener Agent, frischer Kontext).
 > 3. Gib jedem Agenten **immer zuerst Teil A (Gemeinsamer Kontext)** und danach **genau einen Meilenstein aus Teil B**.
 > 4. Halte die Reihenfolge laut Abhängigkeitsgraph ein. Meilensteine in derselben Zeile können parallel laufen (dann jeweils in einem eigenen Branch/Worktree).
 > 5. Jeder Agent beendet seine Arbeit mit grünen Tests, einem aktualisierten `docs/PROGRESS.md` und einem Commit. Der nächste Agent baut darauf auf.
 
 ```
-M0 ─► M1 ─► M2 ─► M3 ─┬─► M4 ─► M5 ─┬─► M6
-                      │             ├─► M7
-                      └─► M8 ───────┴─► M9 ─► M10a/b/c ─► M11 (optional) ─► M12
+M0 ─┬─► M1 ─► M2 ─► M3 ─┬─► M4 ─► M5 ─┬─► M6
+    │                   │             ├─► M7
+    └─► M0b ────────────┘             │
+                        └─► M8 ───────┴─► M9 ─► M10a/b/c ─► M11 (optional) ─► M12
 ```
-(M8 kann nach M3 parallel zu M4/M5 laufen. M6 und M7 können parallel laufen.)
+(M0b, also Design-System und UX, läuft nach M0 parallel zu M1–M3 und muss vor M4 fertig sein. M8 kann nach M3 parallel zu M4/M5 laufen. M6 und M7 können parallel laufen.)
 
 ---
 
@@ -21,7 +22,11 @@ M0 ─► M1 ─► M2 ─► M3 ─┬─► M4 ─► M5 ─┬─► M6
 
 ### A.1 Ziel
 
-Du baust **EasyBill**, eine deutschsprachige Rechnungs-PWA für Selbstständige und Kleinunternehmer. Sie ersetzt die bestehende App „BillKiller“, deren Code unter `legacy/` liegt (Angular 19 PWA + Express-Backend; Doku in `legacy/CLAUDE.md`). **Alle bestehenden Funktionen bleiben erhalten**, die Architektur ändert sich:
+Du baust **EasyBill**, eine deutschsprachige Rechnungs-PWA für Selbstständige und Kleinunternehmer, **in einem neuen Repository**. Sie ersetzt die bestehende App „BillKiller“. Deren Code liegt nur als read-only Referenz unter `.reference/old-bill/` (Angular 19 PWA + Express-Backend; Doku in `.reference/old-bill/CLAUDE.md`; per `.gitignore` ausgeschlossen).
+
+**Vom Altsystem übernommen wird nur der Funktionsumfang.** Code, Struktur, UI-Komponenten, Layout und Look & Feel werden **nicht** übernommen. EasyBill bekommt ein komplett neues, modernes UI/UX-Konzept (A.7). Der alte Code dient nur dazu, fachliche Regeln, Berechnungen und Datenformate nachzulesen.
+
+Die Architektur ändert sich wie folgt:
 
 | Bisher (legacy) | Neu |
 |---|---|
@@ -33,24 +38,27 @@ Du baust **EasyBill**, eine deutschsprachige Rechnungs-PWA für Selbstständige 
 | – | **Import** alter JSON-Backups über die User-Settings |
 | – | Zusätzliche Features: Angebote, Mahnwesen, Zahlungseingänge, Storno, wiederkehrende Rechnungen, USt-Modus, DATEV/CSV-Export, DSGVO-Export, optional E-Rechnung |
 
-### A.2 Funktionen aus der alten App, die erhalten bleiben (Referenz: `legacy/`)
+### A.2 Funktionsumfang der alten App, der erhalten bleibt (Referenz: `.reference/old-bill/`)
 
-- **Dashboard** (`legacy/src/app/views/dashboard`): KPI-Karten, Monatsumsatz-Chart, Top-5-Kunden, Aufschlüsselung nach Auftragsstatus. Standardroute.
+Die Pfadangaben zeigen, wo die **fachliche Logik** nachzulesen ist. Wie diese Funktionen im neuen UI aussehen und bedient werden, legt A.7 bzw. M0b fest, nicht der alte Code.
+
+- **Dashboard** (`.reference/old-bill/src/app/views/dashboard`): KPI-Karten, Monatsumsatz-Chart, Top-5-Kunden, Aufschlüsselung nach Auftragsstatus. Standardroute.
 - **Aufträge** (`order-overview`): anlegen, bearbeiten, löschen, suchen (Name/Nummer), Positionen aus Artikeln oder frei, Positions- und Gesamtrabatt, Negativpositionen, Flex-Preise, PDF erzeugen, Rechnung per Mail senden, Status `OPEN → IN_PROGRESS → SENT_MAIL → CLOSED`, `payDate = Rechnungsdatum + 14 Tage` (künftig einstellbar), `closedDate` beim Schließen.
 - **Kunden** (`customer-overview`): CRUD, paginierte Suche, XLSX-Import.
 - **Artikel** (`articles-overview`): Artikeltypen (Einheit Stunde/Stück, Preis, Artikelnummer, Flex-Preis, Negativposition, Zusatzinfo), CRUD, XLSX-Import.
 - **Steuerreport** (`tax-report`): EÜR-Einnahmenliste nach Monaten, Jahr wählbar, nur bezahlte bzw. geschlossene Rechnungen.
 - **Hilfe** (`help`): wird zur Bedienungsanleitung (Ordner wählen, Import, Agent verbinden).
-- **Preisberechnung**: `legacy/src/app/shared/utils/calc-prize.ts` 1:1 übernehmen (mit Tests). Der neue Code rechnet **in Cent (Integer)** und muss bei denselben Eingaben exakt dieselben Beträge liefern.
-- **PDF-Layout**: `legacy/Backend/src/services/pdf-generator.service.ts` (pdfmake) als Vorlage: Logo, Firmenblock, Kundenblock, Einleitungstext mit Platzhaltern, Rechnungs-/Kundennummer, Rechnungs-/Fälligkeitsdatum, Positionstabelle (Rabattspalte nur bei Bedarf), Summenblock, Bankverbindung in der Fußzeile.
+- **Preisberechnung**: Die Rechenregeln aus `.reference/old-bill/src/app/shared/utils/calc-prize.ts` fachlich nachbauen (neuer Code, kein Copy & Paste). Der neue Code rechnet **in Cent (Integer)** und muss bei denselben Eingaben exakt dieselben Beträge liefern.
+- **PDF-Inhalte**: `.reference/old-bill/Backend/src/services/pdf-generator.service.ts` zeigt, **welche Inhalte** eine Rechnung hat: Logo, Firmenblock, Kundenblock, Einleitungstext mit Platzhaltern, Rechnungs- und Kundennummer, Rechnungs- und Fälligkeitsdatum, Positionstabelle (Rabattspalte nur bei Bedarf), Summenblock, Bankverbindung. Das **Rechnungsdesign wird neu gestaltet** (M0b/M5) und folgt DIN 5008 für Anschriftfeld und Faltmarken.
 - **Platzhalter** (`placeholder-replace.utils.ts`): `%customerName%`, `%customerFirstName%`, `%customerLastName%`, `%orderNumber%`, `%payDay%`, `%genderedFormallyGreetings%`, `%tenantBusiness%`. Alle ersetzen, nicht nur das erste Vorkommen (der alte Code nutzt `String.replace`, das ist ein Bug).
-- **MCP-Tools** (`legacy/Backend/src/mcp/register-tools.ts`): alle Tools fachlich übernehmen (siehe M9).
+- **MCP-Tools** (`.reference/old-bill/Backend/src/mcp/register-tools.ts`): alle Tools fachlich übernehmen (siehe M9).
 
 ### A.3 Tech-Stack (vor Projektstart auf aktuelle stabile Versionen prüfen)
 
 - **Monorepo** mit npm workspaces:
-  - `apps/web`: Angular (aktuelle stabile Major-Version), standalone components, Signals, zoneless, Angular Material, Tailwind, `@angular/service-worker` (PWA).
+  - `apps/web`: Angular (aktuelle stabile Major-Version), standalone components, Signals, zoneless, Tailwind, `@angular/service-worker` (PWA). Die UI-Basis legt M0b fest (A.7).
   - `apps/api`: Node.js (aktuelle LTS, ≥ 24), TypeScript strict, Express 5, offizieller `mongodb`-Treiber, `zod` für Validierung.
+  - `packages/ui`: eigene Komponentenbibliothek und Design-Tokens (A.7, M0b), mit Storybook.
   - `packages/shared`: Domänentypen, zod-Schemas, Preisberechnung, Platzhalter, **PDF-Dokumentdefinition (pdfmake)**, gemeinsam genutzt von Web und API.
 - Tests: Vitest (shared/api), Angular-Test-Runner nach aktuellem Angular-Default, Playwright (E2E), `mongodb-memory-server` oder Testcontainers für Integrationstests.
 - Lokale Entwicklung: `docker compose` mit lokaler MongoDB (Replica Set mit einem Knoten). **Produktion nutzt die vorhandene MongoDB.**
@@ -104,6 +112,29 @@ Maßstab: **OWASP ASVS 5.0 Level 2**, OWASP Top 10 (aktuelle Ausgabe), **NIST SP
 
 ---
 
+### A.7 UI/UX-Leitlinien (neues Look & Feel)
+
+Das alte UI (feste 250-px-Sidebar, Material-Buttons, Dialog-lastige Bedienung) dient **nicht** als Vorlage. Ziel ist eine moderne, ruhige und schnelle Business-App auf dem Niveau aktueller SaaS-Tools (z. B. Linear, Stripe Dashboard, lexoffice/sevDesk als fachliche Vergleichspunkte).
+
+- **Design-System zuerst:** Design-Tokens für Farben, Typografie, Abstände, Radien, Schatten und Motion als CSS Custom Properties. Light- und Dark-Mode, ein eigenes Farbschema mit Akzentfarbe (vom User im Firmenprofil anpassbar), eine variable Schrift (z. B. Inter) selbst gehostet, also kein Google-Fonts-CDN (DSGVO).
+- **Komponenten:** eine eigene Komponentenbibliothek `packages/ui` auf Basis von **headless, barrierefreien Primitives** (Angular CDK bzw. Angular Aria), gestylt mit Tailwind (aktuelle Major-Version) und den Tokens. Angular Material mit eigenem Theme ist nur zulässig, wenn M0b das per ADR begründet. Jede Komponente ist in Storybook dokumentiert, mit visuellen Regressionstests.
+- **Layout und Navigation:** Auf dem Desktop eine einklappbare Seitenleiste mit Icons und Labels, eine Topbar mit globaler Suche und Benutzermenü. Auf Mobilgeräten eine Bottom-Navigation mit den 4–5 wichtigsten Bereichen und einem schwebenden Button „+ Neu“. Mobile-first, sinnvoll nutzbar ab 360 px.
+- **Bedienung:**
+  - Command Palette (`Strg/⌘ + K`) für Suche, Navigation und Aktionen wie „Neue Rechnung für …“.
+  - Tastenkürzel für häufige Aktionen.
+  - Eigene Seiten statt Modal-Dialogen für komplexe Formulare; Slide-over-Panels für Details.
+  - Inline-Validierung mit verständlichen deutschen Fehlermeldungen.
+  - Automatisches Speichern von Entwürfen.
+  - Optimistic Updates mit „Rückgängig“-Toast statt Bestätigungsdialogen bei umkehrbaren Aktionen. Echte Bestätigung nur bei endgültigen Aktionen (Rechnung ausstellen, Storno, Löschen).
+- **Listen:** Tabellen mit Spaltensortierung, gespeicherten Filtern, Status-Chips, Massenaktionen und Kartenansicht auf Mobilgeräten. Leere Zustände mit klarer nächster Aktion. Skeleton-Loader statt Spinner-Overlays.
+- **Dashboard:** KPI-Karten mit Trend zum Vorperiodenwert, interaktive Diagramme (barrierefreie Chart-Library, mit Tabellenansicht als Alternative), ein Bereich „Zu erledigen“ (überfällige Rechnungen, Entwürfe, nicht lokal gespeicherte PDFs).
+- **Onboarding:** Ein geführter Einstieg nach dem ersten Login: Firmenprofil, Steuermodus, Rechnungsordner wählen, optional Altdaten importieren. Dazu eine Fortschrittsanzeige „Bereit für die erste Rechnung“.
+- **Barrierefreiheit:** WCAG 2.2 AA (Kontraste, Fokusreihenfolge, sichtbarer Fokus, Screenreader-Labels, `prefers-reduced-motion`), automatisiert geprüft mit axe in den E2E-Tests.
+- **Formatierung:** deutsches Zahlen-, Währungs- und Datumsformat; Beträge in Tabellen rechtsbündig mit tabellarischen Ziffern.
+- **Performance:** Initial-Bundle-Budget (z. B. < 250 kB gzip) in `angular.json`, Lighthouse-Score ≥ 90 in allen Kategorien als CI-Check.
+
+---
+
 ## TEIL B – Meilensteine
 
 Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
@@ -122,13 +153,32 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - helmet/CSP, pino-Logging mit Redaction,
   - zentraler Fehlerbehandlung (keine Stacktraces an Clients, RFC 9457 Problem Details),
   - `/healthz` (Liveness) und `/readyz` (Mongo-Ping).
-- `apps/web`: leere Angular-PWA (zoneless, Material, Tailwind, Service Worker) mit Shell-Layout (linke Sidebar wie in `legacy/src/app/app.component.html`).
+- `apps/web`: leere Angular-PWA (zoneless, Tailwind, Service Worker) mit einer neutralen Platzhalter-Shell. Die UI-Bibliothek und das endgültige Layout legt M0b fest.
 - `docker-compose.yml` für die Entwicklung: MongoDB als Replica Set mit einem Knoten (für lokale Transaktionstests), API und Web. `.env.example` ohne echte Secrets.
 - CI (GitHub Actions): install, lint, typecheck, test, build, `npm audit --audit-level=high`, SBOM erzeugen.
 - Doku: `CLAUDE.md` (Befehle, Struktur, Konventionen aus Teil A), `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, `docs/adr/0001-architektur.md` (Monorepo, Mongo, PDFs nur lokal, BFF-Sessions, eingebauter OAuth-Server).
-- `legacy/` von Lint, Build und Tests ausschließen.
+- `.reference/` in `.gitignore`, `.eslintignore` und in die Test-Konfiguration aufnehmen. Ein `scripts/fetch-reference.sh` klont das alte Repo read-only dorthin, damit spätere Agenten die fachliche Referenz haben.
 
 **Akzeptanz:** `docker compose up` startet alles. `/readyz` ist grün mit Mongo. Die Web-App lädt mit leerer Shell. Die CI ist grün.
+
+---
+
+### M0b – Design-System & UX-Konzept
+
+**Ziel:** Ein vollständiges, neues Look & Feel nach A.7, bevor die eigentlichen Views entstehen (M4). Es läuft parallel zu M1–M3.
+
+**Aufgaben**
+- **UX-Konzept** in `docs/design/`:
+  - Informationsarchitektur und Navigationsstruktur.
+  - Die wichtigsten User-Flows als Ablaufdiagramme (Mermaid): Onboarding, Rechnung erstellen bis Versand, Zahlung erfassen, Mahnung, Import, Agent verbinden.
+  - Low-Fidelity-Wireframes (z. B. als HTML-Prototypen oder in Storybook) für Dashboard, Listen, Rechnungseditor, Einstellungen, Login/MFA und Consent-Screen (M8).
+- **Design-Tokens** (Light/Dark, Akzentfarbe zur Laufzeit änderbar) und Typografie-Skala.
+- **`packages/ui`** mit den Basiskomponenten: Button, Icon-Button, Input, Textarea, Select, Combobox (Kunden- und Artikelsuche), Datepicker (deutsches Format), Währungs-Input (Cent-intern), Checkbox, Switch, Tabs, Tabelle (sortierbar, mobile Kartenansicht), Status-Chip, Card, KPI-Card, Slide-over, Dialog, Toast mit Undo, Command Palette, leerer Zustand, Skeleton, App-Shell (Sidebar, Topbar, Bottom-Nav).
+- Storybook mit allen Komponenten und Zuständen, axe-Prüfung und visuellen Snapshot-Tests.
+- **Neues Rechnungsdesign** (PDF): 2–3 Entwürfe als statische Beispiele, DIN 5008 konform. Der User wählt später eine Variante in den Settings. Eine Variante ist Default und wird in M5 umgesetzt.
+- Ein ADR mit den Entscheidungen zu Komponenten-Basis, Icon-Set (z. B. Lucide), Chart-Library und Font.
+
+**Akzeptanz:** Storybook läuft und ist in der CI gebaut. Alle Komponenten bestehen die axe-Prüfung und sind per Tastatur bedienbar. Das UX-Konzept deckt alle Funktionen aus A.2 ab, mit einer Zuordnungstabelle „alte Funktion → neuer Ort im UI“, damit nichts verloren geht. Vor dem Start von M4 holt der Agent sich vom User ein Review der Wireframes und Rechnungsentwürfe.
 
 ---
 
@@ -147,7 +197,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 - **Steuermodus** in den Settings:
   - `SMALL_BUSINESS` (Kleinunternehmer nach §19 UStG, Default): keine USt; der Hinweistext wird automatisch auf die Rechnung gedruckt.
   - `STANDARD`: USt pro Position (19 %, 7 %, 0 %), Ausweis nach Steuersätzen getrennt, Steuernummer bzw. USt-IdNr. Pflicht.
-  - Berechnung in `packages/shared/calc` mit Rundung pro Steuersatz-Summe. Für den Kleinunternehmer-Modus mit legacy-kompatiblen Ergebnissen; Golden-Tests gegen die legacy-Funktion.
+  - Berechnung in `packages/shared/calc` mit Rundung pro Steuersatz-Summe. Für den Kleinunternehmer-Modus mit legacy-kompatiblen Ergebnissen; Golden-Tests: Die Referenzwerte werden einmalig mit der alten Funktion erzeugt und als JSON-Fixture ins neue Repo eingecheckt (`packages/shared/test/fixtures/legacy-calc.json`). So läuft die CI ohne `.reference/`.
 - Nummernkreise: konfigurierbares Format (z. B. `RE-{YYYY}-{####}`), atomar und lückenlos. Getrennte Kreise für Rechnung, Angebot, Kunde und Storno.
 - `apps/api`: Mongo-Verbindungsmodul, Migrationssystem (versionierte Skripte, beim Start oder per CLI) für Collections, JSON-Schema-Validatoren und Indizes (u. a. eindeutig `{ownerId, invoiceNumber}`, `{ownerId, customerNumber}`, Textindex für die Suche).
 - Ein `BaseRepository<T>`, das `ownerId` **zwingend** im Konstruktor bzw. Kontext erwartet und an jede Operation hängt. Eine direkte Collection-Nutzung außerhalb der Repositories wird per Lint-Regel verboten.
@@ -201,12 +251,13 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 
 **Aufgaben**
 - Login-, MFA-, Setup-, Einladungs- und Reset-Seiten. Auth-State per Signal aus `GET /api/me`. Route-Guards. HTTP-Interceptor für CSRF-Token und 401-Handling (zurück zum Login).
-- Views nach dem Muster der legacy-App (`resource()`/`computed()`, `inject()`, `protected readonly`, `takeUntilDestroyed`): **Dashboard, Aufträge, Rechnungen (neu), Kunden, Artikel, Steuerreport, Einstellungen (neu), Hilfe**. Navigation in dieser Reihenfolge in der Sidebar.
-- Den Auftragsdialog aus `legacy/src/app/views/order-overview` übernehmen (Positionen aus Artikeln, Rabatte, Live-Summe). Neu sind Leistungsdatum, Steuersatz pro Position und der Button „Rechnung ausstellen“ mit Vorschau.
+- Das UI wird **vollständig nach dem Design-System und den Flows aus M0b** gebaut (`docs/design/`, `packages/ui`). Vom alten UI wird nichts übernommen. Angular-Konventionen: Signals (`resource()`/`httpResource()`, `computed()`, `linkedSignal()`), `inject()`, Signal-Forms bzw. typisierte Reactive Forms, `OnPush`, neue Control-Flow-Syntax, lazy geladene Routen.
+- Bereiche: **Dashboard (Start), Aufträge, Rechnungen (neu), Angebote (Platzhalter für M10a), Kunden, Artikel, Steuerreport, Einstellungen (neu), Hilfe**. Navigation, Gruppierung und Reihenfolge nach der Informationsarchitektur aus M0b.
+- Der **Auftrags- bzw. Rechnungseditor** wird neu gestaltet, als eigene Seite statt Modal-Dialog: links das Formular, rechts eine Live-Vorschau des PDFs (auf Mobilgeräten umschaltbar). Funktional muss er alles können, was der alte Auftragsdialog konnte (Positionen aus Artikeln oder frei, Positions- und Gesamtrabatt, Negativpositionen, Flex-Preise, Live-Summe). Neu sind Leistungsdatum, Steuersatz pro Position, Tastaturbedienung (Enter = neue Position, Positionen per Drag & Drop sortieren), automatisches Speichern als Entwurf und „Rechnung ausstellen“ mit einem Bestätigungsschritt, der die Pflichtangaben prüft.
 - Rechnungsansicht: Liste mit Status-Chips, Zahlungen erfassen, Storno, „PDF herunterladen“ (die lokale Ordnerablage folgt in M5).
 - **Einstellungen:** Firmenprofil (Name, Adresse, Telefon, E-Mail, Web, Steuernummer, USt-IdNr., IBAN, BIC, Bank, Logo-Upload als SVG oder PNG, serverseitig validiert und SVG sanitisiert), Steuermodus, Zahlungsziel, Nummernformate, Textvorlagen mit Platzhalter-Hilfe, Profil, Sicherheit (MFA, Sessions).
 - **PWA/Offline:** App-Shell offline verfügbar. Geschäftsdaten sind **online-first** und werden nicht dauerhaft im Browser gespeichert (Datenschutz bei geteilten PCs). Offline zeigt die App einen klaren Hinweis.
-- Barrierefreiheit (WCAG 2.2 AA für Formulare und Kontraste), responsive ab 360 px.
+- Barrierefreiheit, Responsiveness, Performance-Budget und Onboarding nach A.7. axe-Prüfungen laufen in jedem E2E-Test mit.
 
 **Akzeptanz:** Playwright-E2E: Setup → Login mit MFA → Kunde anlegen → Artikel anlegen → Auftrag anlegen → Rechnung ausstellen → Zahlung erfassen → Dashboard und Steuerreport zeigen den Betrag.
 
@@ -217,7 +268,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 **Ziel:** Rechnungen landen als PDF im vom User gewählten Ordner auf seinem PC; der Server speichert keine Dateien.
 
 **Aufgaben**
-- `packages/shared/pdf`: Dokumentdefinition aus dem Invoice-Snapshot. Layout wie legacy, ergänzt um die Pflichtangaben (Leistungsdatum, Steuerausweis bzw. §19-Hinweis, Steuernummer, USt-IdNr., Storno-Referenz). Feste Fonts einbetten. Deterministisch: identischer Snapshot ergibt identische Bytes. Läuft im Browser und in Node mit derselben Definition.
+- `packages/shared/pdf`: Dokumentdefinition aus dem Invoice-Snapshot. **Neues Rechnungsdesign** aus M0b (DIN 5008, modern und gut lesbar, Akzentfarbe und Logo aus dem Firmenprofil), mit allen Inhalten aus A.2, ergänzt um die Pflichtangaben (Leistungsdatum, Steuerausweis bzw. §19-Hinweis, Steuernummer, USt-IdNr., Storno-Referenz). Feste Fonts einbetten. Deterministisch: identischer Snapshot ergibt identische Bytes. Läuft im Browser und in Node mit derselben Definition.
 - **Ordnerwahl in den Einstellungen:** `window.showDirectoryPicker({mode: 'readwrite'})`. Den `FileSystemDirectoryHandle` in IndexedDB speichern (er ist gerätegebunden, das Gerät per zufälliger `deviceId` kennzeichnen). Ordnernamen anzeigen und Schreibrecht prüfen. Fehlt nach einem Neustart die Berechtigung, holt die App sie per `requestPermission()` erneut ein, ausgelöst durch einen Klick.
 - **Dateistruktur** über ein Muster in den Settings, z. B. `{YYYY}/{invoiceNumber}_{customerLastName}.pdf`. Dateinamen sanitisieren (keine Pfadtrenner, keine reservierten Windows-Namen, max. Länge). Existierende Dateien nie stillschweigend überschreiben.
 - **Ablauf beim Ausstellen:** Die API liefert den Snapshot, der Browser rendert das PDF, prüft den SHA-256 gegen den Server-Hash, schreibt die Datei in den Ordner und meldet `POST /local-copy`.
@@ -248,7 +299,7 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
 
 **Ziel:** Bestehende BillKiller-Daten in das Konto des angemeldeten Users übernehmen.
 
-**Quellformate** (siehe `legacy/Backend/src/services/backup.service.ts` und die legacy-Interfaces unter `legacy/src/app/services/storage/interfaces/`):
+**Quellformate** (siehe `.reference/old-bill/Backend/src/services/backup.service.ts` und die legacy-Interfaces unter `.reference/old-bill/src/app/services/storage/interfaces/`):
 - `customer_backup.json`: Array von `Customer {id, name, surname, email?, zipCode, street, city, houseNumber, gender?}`.
 - `orders_backup.json`: Array von `Order {orderNumber, customerNumber, customerName, isMailAddressAvailable, state, createdDate, closedDate?, payDate?, positions[], discount, total}`. Datumswerte sind ISO-Strings, Preise Euro-Floats.
 - Optional `backup_articleTypes/*.json`: Array von `ArticleType`.
@@ -390,7 +441,9 @@ Deine Aufgabe ist ausschließlich Meilenstein <Mx>:
 
 <Abschnitt Mx hier einfügen>
 
-Arbeite die Aufgaben vollständig ab und halte die Definition of Done (A.6) ein.
+Arbeite die Aufgaben vollständig ab und halte die Definition of Done (A.6) und bei
+UI-Arbeit die UI/UX-Leitlinien (A.7) ein. Übernimm aus .reference/old-bill/ nur
+Fachlogik, keinen Code und kein UI.
 Recherchiere aktuelle Versionen und Spezifikationen, bevor du Abhängigkeiten
 hinzufügst. Frag mich, wenn eine fachliche Entscheidung offen ist. Aktualisiere
 am Ende docs/PROGRESS.md mit einer Übergabe für den nächsten Agenten und committe.
