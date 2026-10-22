@@ -466,15 +466,16 @@ Jeder Meilenstein ist so geschrieben, dass er als eigener Prompt funktioniert:
   - **Exakter Redirect-URI-Abgleich.** Für native Clients Loopback-Redirects (`http://127.0.0.1:<beliebiger Port>`, RFC 8252); sonst nur HTTPS.
   - **Resource Indicators (RFC 8707):** Der Parameter `resource` wird ausgewertet, und Tokens werden an die Audience `https://<host>/mcp` gebunden. Der MCP-Server lehnt Tokens mit anderer Audience ab (**kein Token-Passthrough**).
   - **Client-Registrierung:** **Client ID Metadata Documents** (laut aktueller MCP-Spec bevorzugt) **und** Dynamic Client Registration (RFC 7591) als Fallback, mit Rate-Limit, Größenlimits und Validierung von `redirect_uris`, `client_name` und `logo_uri` (SSRF-Schutz beim Laden von Metadaten oder Logos: nur HTTPS, keine privaten IPs, Timeouts, Größenlimit). Registrierte, aber nie genutzte Clients nach X Tagen aufräumen.
+  - **Keine Duplikate pro App:** Viele Clients (z. B. Claude) registrieren sich bei jeder Autorisierung per DCR neu und erhalten eine neue `client_id`. Der Server erkennt dieselbe App anhand einer **Client-Identität** (bei Client ID Metadata Documents die Metadata-URL; bei DCR die Kombination aus normalisiertem `client_name` und Redirect-URI-Origin bzw. -Set) und führt registrierte Clients derselben Identität pro User zu **einer** Verbindung zusammen. Wird dieselbe App erneut autorisiert, wird die bestehende Einwilligung (Scopes) aktualisiert und werden die Tokens der älteren Registrierungen widerrufen; es entsteht kein neuer Eintrag.
   - **Kurzlebige Access Tokens** (5–15 min), signiert mit ES256 oder EdDSA, mit JWKS-Rotation. **Refresh-Token-Rotation** mit Erkennung von Wiederverwendung: wird ein altes Refresh Token erneut benutzt, widerruft der Server die ganze Token-Familie. Absolute Lebensdauer begrenzen (z. B. 30 Tage).
   - **`state` bzw. PKCE gegen CSRF**, `iss`-Parameter in der Authorization Response (RFC 9207) gegen Mix-up-Angriffe.
   - DPoP (RFC 9449) optional unterstützen, wenn Clients es anbieten.
 - **Scopes** (nur für die Auftragsbearbeitung, passend zu M9): `customers:read`, `customers:write`, `articles:read`, `orders:read`, `orders:write`, `invoices:read`, `invoices:issue`, `invoices:send`, `payments:write`, `vouchers:redeem`, `offline_access`. Default ist nur lesend. Es gibt **keine** Scopes für Einstellungen, Reports, Export oder Administration; der Authorization Server lehnt unbekannte Scopes ab.
 - **Consent-Screen:** Clientname, Herkunft (Domain der Redirect-URI bzw. Metadata-URL), Hinweis bei unbekannten oder unverifizierten Clients, angeforderte Scopes in Klartext, einzelne Scopes abwählbar. Einwilligung pro Client und Scope-Set speichern.
-- **„Verbundene Apps“** in den Einstellungen: alle Clients mit Scopes, letzter Nutzung und „Zugriff widerrufen“ (widerruft alle Tokens sofort).
+- **„Verbundene Apps“** in den Einstellungen: pro App (Client-Identität, siehe „Keine Duplikate pro App“) genau ein Eintrag mit Scopes, letzter Nutzung und „Zugriff widerrufen“ (widerruft alle Tokens aller zugehörigen Registrierungen sofort).
 - Einträge im Audit-Log (Consent, Token-Ausgabe pro Client, Widerruf, Wiederverwendung eines Refresh Tokens).
 
-**Akzeptanz:** Tests für PKCE-Pflicht, falsche Redirect-URI, falsche Audience, Refresh-Wiederverwendung, Widerruf, abgelaufene Tokens und abgewählte Scopes. Ein End-to-End-Flow mit dem MCP Inspector gegen die lokale Instanz ist dokumentiert.
+**Akzeptanz:** Tests für mehrfache Autorisierung derselben App (genau ein Eintrag, alte Tokens widerrufen), PKCE-Pflicht, falsche Redirect-URI, falsche Audience, Refresh-Wiederverwendung, Widerruf, abgelaufene Tokens und abgewählte Scopes. Ein End-to-End-Flow mit dem MCP Inspector gegen die lokale Instanz ist dokumentiert.
 
 ---
 
